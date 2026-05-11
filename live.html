@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESG Live Dashboard</title>
+  <?!= include('style'); ?>
+</head>
+<body>
+<div class="live-page">
+
+  <!-- HEADER -->
+  <div class="live-header">
+    <div class="live-logo">
+      <div class="live-logo-badge">ESG</div>
+      <div>
+        <div class="live-title">E<span>S</span>G Live</div>
+        <div class="live-subtitle">Car Wash &nbsp;·&nbsp; Real-Time Dashboard</div>
+      </div>
+    </div>
+    <div class="live-badge">
+      <span class="live-dot"></span>
+      <span>LIVE</span>
+    </div>
+  </div>
+
+  <!-- META INFO -->
+  <div class="live-meta">
+    <span>მენეჯერი: <strong id="lv-manager">—</strong></span>
+    <span>|</span>
+    <span>ცვლა: <strong id="lv-shift-start">—</strong></span>
+    <span>|</span>
+    <span>დრო: <strong id="lv-time">—</strong></span>
+  </div>
+
+  <!-- REVENUE CARDS -->
+  <div class="live-grid">
+    <div class="live-card accent">
+      <div class="lc-label">სულ შემოსავალი</div>
+      <div class="lc-value" id="lv-revenue">0.00 ₾</div>
+      <div class="lc-sub" id="lv-washes">0 მობანება</div>
+    </div>
+    <div class="live-card green">
+      <div class="lc-label">ქეში</div>
+      <div class="lc-value" id="lv-cash">0.00 ₾</div>
+    </div>
+    <div class="live-card">
+      <div class="lc-label">ბარათი</div>
+      <div class="lc-value" id="lv-card">0.00 ₾</div>
+    </div>
+    <div class="live-card" style="border-color:var(--warning);background:var(--warning-dim)">
+      <div class="lc-label">ტალონი</div>
+      <div class="lc-value" style="color:var(--warning)" id="lv-talon">0</div>
+      <div class="lc-sub" id="lv-talon-val">0.00 ₾</div>
+    </div>
+    <div class="live-card gold">
+      <div class="lc-label">VIP</div>
+      <div class="lc-value" id="lv-vip">0</div>
+      <div class="lc-sub" id="lv-mgr-bonus">მენ. ბონუსი: 0 ₾</div>
+    </div>
+    <div class="live-card orange">
+      <div class="lc-label">გადაუხდელი</div>
+      <div class="lc-value" id="lv-pending">0</div>
+      <div class="lc-sub" id="lv-pending-val">0.00 ₾</div>
+    </div>
+  </div>
+
+  <!-- BOX EARNINGS -->
+  <div class="live-section-title">ბოქსი – მრეცხავების ხელფასი</div>
+  <div class="live-boxes">
+    <div class="live-box-card">
+      <div class="lbc-label">Box 1</div>
+      <div class="lbc-salary" id="lv-box1-sal">0.00 ₾</div>
+      <div class="lbc-washes" id="lv-box1-w">0 რეცხ.</div>
+    </div>
+    <div class="live-box-card">
+      <div class="lbc-label">Box 2</div>
+      <div class="lbc-salary" id="lv-box2-sal">0.00 ₾</div>
+      <div class="lbc-washes" id="lv-box2-w">0 რეცხ.</div>
+    </div>
+    <div class="live-box-card">
+      <div class="lbc-label">Box 3</div>
+      <div class="lbc-salary" id="lv-box3-sal">0.00 ₾</div>
+      <div class="lbc-washes" id="lv-box3-w">0 რეცხ.</div>
+    </div>
+    <div class="live-box-card">
+      <div class="lbc-label">Box 4</div>
+      <div class="lbc-salary" id="lv-box4-sal">0.00 ₾</div>
+      <div class="lbc-washes" id="lv-box4-w">0 რეცხ.</div>
+    </div>
+  </div>
+
+  <!-- BONUS PROGRESS -->
+  <div class="bonus-progress-wrap">
+    <div class="bp-header">
+      <span>შემოსავლის პროგრესი</span>
+      <span id="lv-bonus-status" style="color:var(--text-muted)">0.00 ₾ / 1,600.00 ₾</span>
+    </div>
+    <div class="bp-bar">
+      <div class="bp-fill" id="lv-bonus-bar" style="width:0%"></div>
+    </div>
+    <div class="bp-label" id="lv-bonus-label">50 ₾ ბონუსამდე დარჩა...</div>
+  </div>
+
+  <!-- RECENT WASHES -->
+  <div class="live-section-title">ბოლო მობანებები</div>
+  <div class="live-entries" id="lv-entries">
+    <div style="color:var(--text-dim);font-size:13px;padding:12px">
+      ჩანაწერები ჩაიტვირთება...
+    </div>
+  </div>
+
+  <!-- REFRESH INDICATOR -->
+  <div class="live-refresh">
+    <span class="refresh-dot"></span>
+    <span id="lv-refresh-text">განახლება 30 წამში...</span>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  var countdown = 30;
+  var timer;
+
+  function fmt(n) { return (parseFloat(n)||0).toFixed(2) + ' ₾'; }
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function set(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; }
+
+  function renderLive(data) {
+    var s = data.stats;
+    var boxes = ['Box 1','Box 2','Box 3','Box 4'];
+
+    set('lv-manager', data.managerName || '—');
+    if (data.shiftStart) {
+      var d = new Date(data.shiftStart);
+      set('lv-shift-start', d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0'));
+    }
+    set('lv-time', new Date().toLocaleTimeString('ka-GE',{hour:'2-digit',minute:'2-digit'}));
+
+    set('lv-revenue', fmt(s.totalRevenue));
+    set('lv-washes',  s.totalWashes + ' მობანება');
+    set('lv-cash',    fmt(s.cashTotal));
+    set('lv-card',    fmt(s.cardTotal));
+    set('lv-talon',   s.talonCount);
+    set('lv-talon-val', fmt(s.talonValue));
+    set('lv-vip',     s.vipCount);
+    set('lv-mgr-bonus', 'მენ. ბონუსი: ' + fmt(s.managerVIPBonus));
+    set('lv-pending',   s.pendingCount);
+    set('lv-pending-val', fmt(s.pendingValue));
+
+    // Box cards
+    boxes.forEach(function(b, i) {
+      var n   = i + 1;
+      var bd  = (s.boxData || {})[b] || {salary:0, washes:0};
+      set('lv-box'+n+'-sal', fmt(bd.salary));
+      set('lv-box'+n+'-w',   bd.washes + ' რეცხ.');
+    });
+
+    // Bonus progress
+    var pct = Math.min((s.totalRevenue / 1600) * 100, 100);
+    var bar = document.getElementById('lv-bonus-bar');
+    if (bar) bar.style.width = pct.toFixed(1) + '%';
+    set('lv-bonus-status', fmt(s.totalRevenue) + ' / 1,600.00 ₾');
+    if (s.bonusReached) {
+      set('lv-bonus-label', '🎯 1,600 ₾ ზღვარი მიღწეულია! მენეჯერი: +50 ₾');
+    } else {
+      var rem = Math.max(0, 1600 - s.totalRevenue);
+      set('lv-bonus-label', '50 ₾ ბონუსამდე დარჩა: ' + fmt(rem));
+    }
+
+    // Recent entries
+    var el = document.getElementById('lv-entries');
+    if (!data.recentEntries || !data.recentEntries.length) {
+      el.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:12px">ჩანაწერები არ არის</div>';
+      return;
+    }
+    el.innerHTML = data.recentEntries.slice().reverse().map(function(r) {
+      var isPending = r.status === 'Pending';
+      var washColor = r.washType === 'VIP' ? 'var(--vip)' : 'var(--text-muted)';
+      return '<div class="live-entry' + (isPending ? ' pending-entry' : '') + '">' +
+        '<span class="le-plate">' + esc(r.plateNumber) + '</span>' +
+        '<span class="le-type" style="color:' + washColor + '">' +
+          esc(r.carType) + ' · ' + esc(r.washType) +
+          (isPending ? ' <span style="color:var(--pending);font-size:10px">⏳ ტაბი</span>' : '') +
+        '</span>' +
+        '<span class="le-cost">' + r.cost + ' ₾</span>' +
+        '<span class="le-time">' + esc(r.timestamp) + '</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  function refresh() {
+    countdown = 30;
+    google.script.run
+      .withSuccessHandler(function(data) { renderLive(data); })
+      .withFailureHandler(function() {})
+      .getLiveViewData();
+  }
+
+  function tick() {
+    countdown--;
+    var el = document.getElementById('lv-refresh-text');
+    if (el) el.textContent = 'განახლება ' + countdown + ' წამში...';
+    if (countdown <= 0) refresh();
+  }
+
+  refresh();
+  timer = setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>

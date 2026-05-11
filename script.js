@@ -1,29 +1,26 @@
 // ============================================================
-//  ESG Car Wash Manager Terminal – Client-Side Logic
-//  script.js  (rename to script.html for GAS, wrap in <script>)
+//  ESG Car Wash Manager Terminal – script.js  v3
 // ============================================================
-
 'use strict';
 
-// ── STATE ─────────────────────────────────────────────────────
 const STATE = {
-  managerName : '',
-  lists       : null,
-  sessionSales: [],
-  editingRow  : null,
-  statsTimer  : null
+  managerName   : '',
+  lists         : null,
+  sessionSales  : [],
+  editingRow    : null,
+  collectingRow : null,
+  collectPayment: null,
+  statsTimer    : null,
+  webAppUrl     : ''
 };
 
-// ── PRICE TABLE (mirrors Code.gs – used for instant UI feedback) ──
 const PRICES = {
-  'სედანი'   : { 'სტანდარტი': 30, 'VIP': 80,  'შიგნიდან': 15, 'გარედან': 15, 'ორივე': 30, 'სხვა': 0 },
-  'ჯიპი'     : { 'სტანდარტი': 40, 'VIP': 120, 'შიგნიდან': 20, 'გარედან': 20, 'ორივე': 40, 'სხვა': 0 },
-  'ჯიპი XL'  : { 'სტანდარტი': 50, 'VIP': 150, 'შიგნიდან': 25, 'გარედან': 25, 'ორივე': 50, 'სხვა': 0 }
+  'სედანი'  : { 'სტანდარტი':30,'VIP':80,'შიგნიდან':15,'გარედან':15,'ორივე':30,'სხვა':0 },
+  'ჯიპი'    : { 'სტანდარტი':40,'VIP':120,'შიგნიდან':20,'გარედან':20,'ორივე':40,'სხვა':0 },
+  'ჯიპი XL' : { 'სტანდარტი':50,'VIP':150,'შიგნიდან':25,'გარედან':25,'ორივე':50,'სხვა':0 }
 };
 
-// ============================================================
-//  BOOT
-// ============================================================
+// ── BOOT ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   bindLoginForm();
   bindEntryForm();
@@ -33,25 +30,21 @@ document.addEventListener('DOMContentLoaded', () => {
   bindSidebarToggle();
 });
 
-// ============================================================
-//  LOGIN
-// ============================================================
+// ── LOGIN ─────────────────────────────────────────────────────
 function bindLoginForm() {
-  const form    = document.getElementById('login-form');
-  const errEl   = document.getElementById('login-error');
-  const btn     = document.getElementById('login-btn');
-  const pinInp  = document.getElementById('pin');
+  const form   = document.getElementById('login-form');
+  const errEl  = document.getElementById('login-error');
+  const btn    = document.getElementById('login-btn');
+  const pinInp = document.getElementById('pin');
 
-  // Show/hide PIN dots
   pinInp.addEventListener('input', () => {
-    pinInp.value = pinInp.value.replace(/\D/g, '').slice(0, 6);
+    pinInp.value = pinInp.value.replace(/\D/g,'').slice(0,6);
   });
 
   form.addEventListener('submit', e => {
     e.preventDefault();
     const name = document.getElementById('manager-name').value.trim();
     const pin  = pinInp.value;
-
     if (!name) { showLoginError('გთხოვთ შეიყვანოთ სახელი'); return; }
     if (!pin)  { showLoginError('გთხოვთ შეიყვანოთ PIN');   return; }
 
@@ -59,12 +52,12 @@ function bindLoginForm() {
     google.script.run
       .withSuccessHandler(res => {
         setLoading(btn, false);
-        if (res.success) { onLoginSuccess(res.managerName); }
-        else             { showLoginError(res.message); }
+        if (res.success) onLoginSuccess(res.managerName);
+        else             showLoginError(res.message);
       })
       .withFailureHandler(err => {
         setLoading(btn, false);
-        showLoginError('კავშირის შეცდომა: ' + err.message);
+        showLoginError('შეცდომა: ' + err.message);
       })
       .login(name, pin);
   });
@@ -82,7 +75,16 @@ function onLoginSuccess(name) {
   document.getElementById('app').classList.add('visible');
   document.getElementById('manager-name-display').textContent = name;
 
-  // Load lists then init
+  // Get Web App URL for live link
+  google.script.run
+    .withSuccessHandler(url => {
+      STATE.webAppUrl = url;
+      const liveBtn = document.getElementById('live-link-btn');
+      if (liveBtn && url) liveBtn.href = url + '?page=live';
+    })
+    .withFailureHandler(() => {})
+    .getWebAppUrl();
+
   google.script.run
     .withSuccessHandler(lists => {
       STATE.lists = lists;
@@ -91,25 +93,21 @@ function onLoginSuccess(name) {
       refreshStats();
       STATE.statsTimer = setInterval(refreshStats, 30000);
     })
-    .withFailureHandler(err => toast('სიების ჩატვირთვა ვერ მოხერხდა: ' + err.message, 'error'))
+    .withFailureHandler(err => toast('სიების შეცდომა: ' + err.message, 'error'))
     .getListsData();
 }
 
-// ============================================================
-//  DROPDOWN POPULATION
-// ============================================================
+// ── DROPDOWNS ────────────────────────────────────────────────
 function populateDropdowns() {
   const { carTypes, washTypes, boxes, payments } = STATE.lists;
-
-  fillSelect('car-type',   carTypes);
-  fillSelect('wash-type',  washTypes);
-  fillSelect('box',        boxes);
-  fillSelect('payment',    payments);
-
-  fillSelect('edit-car-type',  carTypes);
-  fillSelect('edit-wash-type', washTypes);
-  fillSelect('edit-box',       boxes);
-  fillSelect('edit-payment',   payments);
+  fillSelect('car-type',      carTypes);
+  fillSelect('wash-type',     washTypes);
+  fillSelect('box',           boxes);
+  fillSelect('payment',       payments);
+  fillSelect('edit-car-type', carTypes);
+  fillSelect('edit-wash-type',washTypes);
+  fillSelect('edit-box',      boxes);
+  fillSelect('edit-payment',  payments);
 }
 
 function fillSelect(id, items) {
@@ -118,9 +116,28 @@ function fillSelect(id, items) {
   sel.innerHTML = items.map(v => `<option value="${v}">${v}</option>`).join('');
 }
 
-// ============================================================
-//  ENTRY FORM
-// ============================================================
+// ── PAY STATUS TOGGLE ─────────────────────────────────────────
+function setPayStatus(status) {
+  document.getElementById('pay-status').value = status;
+  const btnNow = document.getElementById('btn-pay-now');
+  const btnTab = document.getElementById('btn-pay-tab');
+  const payGroup    = document.getElementById('payment-group');
+  const pendingBadge= document.getElementById('pending-badge');
+
+  if (status === 'Paid') {
+    btnNow.classList.add('active-pay');    btnNow.classList.remove('active-tab');
+    btnTab.classList.remove('active-pay'); btnTab.classList.remove('active-tab');
+    payGroup.style.display    = '';
+    pendingBadge.classList.remove('show');
+  } else {
+    btnTab.classList.add('active-tab');    btnTab.classList.remove('active-pay');
+    btnNow.classList.remove('active-pay'); btnNow.classList.remove('active-tab');
+    payGroup.style.display    = 'none';
+    pendingBadge.classList.add('show');
+  }
+}
+
+// ── ENTRY FORM ────────────────────────────────────────────────
 function bindEntryForm() {
   const carSel   = document.getElementById('car-type');
   const washSel  = document.getElementById('wash-type');
@@ -129,17 +146,18 @@ function bindEntryForm() {
   const form     = document.getElementById('entry-form');
   const submitBtn= document.getElementById('submit-entry-btn');
 
-  // Auto-fill price when car/wash changes
   function autoPrice() {
-    if (!carSel.value || !washSel.value) return;
     const p = (PRICES[carSel.value] || {})[washSel.value];
     if (p !== undefined) costInp.value = p;
     updateVIPIndicator();
   }
-
   carSel.addEventListener('change', autoPrice);
   washSel.addEventListener('change', autoPrice);
-  paySel.addEventListener('change', updateTalonBadge);
+  paySel.addEventListener('change', () => {
+    const t = document.getElementById('talon-badge');
+    if (paySel.value === 'Talon') t.classList.add('show');
+    else                          t.classList.remove('show');
+  });
 
   function updateVIPIndicator() {
     const el = document.getElementById('vip-indicator');
@@ -147,14 +165,9 @@ function bindEntryForm() {
     else                          el.classList.remove('show');
   }
 
-  function updateTalonBadge() {
-    const el = document.getElementById('talon-badge');
-    if (paySel.value === 'Talon') el.classList.add('show');
-    else                           el.classList.remove('show');
-  }
-
   form.addEventListener('submit', e => {
     e.preventDefault();
+    const payStatus = document.getElementById('pay-status').value;
     const data = {
       plateNumber : document.getElementById('plate').value.trim(),
       loyaltyCode : document.getElementById('loyalty').value.trim(),
@@ -162,34 +175,32 @@ function bindEntryForm() {
       washType    : washSel.value,
       cost        : parseFloat(costInp.value) || 0,
       paymentType : paySel.value,
-      box         : document.getElementById('box').value
+      box         : document.getElementById('box').value,
+      status      : payStatus
     };
-
     if (!data.plateNumber) { toast('მანქანის ნომერი სავალდებულოა', 'warning'); return; }
-    if (!data.carType)     { toast('მანქანის ტიპი სავალდებულოა',    'warning'); return; }
 
     setLoading(submitBtn, true);
     google.script.run
       .withSuccessHandler(res => {
         setLoading(submitBtn, false);
         if (res.success) {
-          toast('ჩანაწერი დამატებულია ✓', 'success');
+          const label = data.status === 'Pending' ? '⏳ ტაბი დამატებულია' : '✓ ჩანაწერი დამატებულია';
+          toast(label, 'success');
           form.reset();
-          // Re-select first options after reset
+          setPayStatus('Paid');
           if (STATE.lists) {
-            document.getElementById('car-type').value  = STATE.lists.carTypes[0];
-            document.getElementById('wash-type').value = STATE.lists.washTypes[0];
-            document.getElementById('box').value       = STATE.lists.boxes[0];
-            document.getElementById('payment').value   = STATE.lists.payments[0];
+            carSel.value  = STATE.lists.carTypes[0];
+            washSel.value = STATE.lists.washTypes[0];
+            document.getElementById('box').value     = STATE.lists.boxes[0];
+            paySel.value  = STATE.lists.payments[0];
             autoPrice();
           }
           document.getElementById('vip-indicator').classList.remove('show');
           document.getElementById('talon-badge').classList.remove('show');
           loadRecentEntries();
           refreshStats();
-        } else {
-          toast('შეცდომა: ' + res.message, 'error');
-        }
+        } else { toast('შეცდომა: ' + res.message, 'error'); }
       })
       .withFailureHandler(err => {
         setLoading(submitBtn, false);
@@ -199,9 +210,7 @@ function bindEntryForm() {
   });
 }
 
-// ============================================================
-//  LIVE STATS
-// ============================================================
+// ── STATS ─────────────────────────────────────────────────────
 function refreshStats() {
   google.script.run
     .withSuccessHandler(s => renderStats(s))
@@ -211,11 +220,21 @@ function refreshStats() {
 
 function renderStats(s) {
   setChip('stat-washes',  s.totalWashes);
-  setChip('stat-cash',    formatGEL(s.cashTotal));
-  setChip('stat-card',    formatGEL(s.cardTotal));
-  setChip('stat-talon',   s.talonCount + ' / ' + formatGEL(s.talonValue));
+  setChip('stat-cash',    fmt(s.cashTotal));
+  setChip('stat-card',    fmt(s.cardTotal));
+  setChip('stat-talon',   s.talonCount + ' / ' + fmt(s.talonValue));
   setChip('stat-vip',     s.vipCount);
-  setChip('stat-revenue', formatGEL(s.totalRevenue));
+  setChip('stat-pending', s.pendingCount + ' / ' + fmt(s.pendingValue));
+  setChip('stat-revenue', fmt(s.totalRevenue));
+
+  // Box earnings chips
+  const boxes = ['Box 1','Box 2','Box 3','Box 4'];
+  boxes.forEach((b, i) => {
+    const n   = i + 1;
+    const bd  = (s.boxData || {})[b] || { salary:0, washes:0 };
+    setChip('box-earn-' + n, fmt(bd.salary));
+    setChip('box-wash-' + n, '(' + bd.washes + ')');
+  });
 
   const bonusEl = document.getElementById('bonus-badge');
   if (s.bonusReached) bonusEl.classList.add('visible');
@@ -227,52 +246,104 @@ function setChip(id, val) {
   if (el) el.textContent = val;
 }
 
-// ============================================================
-//  RECENT ENTRIES TABLE
-// ============================================================
+// ── RECENT ENTRIES TABLE ──────────────────────────────────────
 function loadRecentEntries() {
   google.script.run
     .withSuccessHandler(rows => renderEntriesTable(rows))
-    .withFailureHandler(err => toast('ჩანაწერების ჩატვირთვა ვერ მოხერხდა', 'error'))
+    .withFailureHandler(() => toast('ჩანაწერების ჩატვირთვა ვერ მოხერხდა', 'error'))
     .getRecentEntries(10);
 }
 
 function renderEntriesTable(rows) {
   const tbody = document.getElementById('entries-tbody');
-  if (!rows || rows.length === 0) {
-    tbody.innerHTML = `<tr class="empty-row">
-      <td colspan="8">დღეს ჩანაწერები არ არის</td></tr>`;
+  if (!rows || !rows.length) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="9">დღეს ჩანაწერები არ არის</td></tr>`;
     return;
   }
 
   tbody.innerHTML = rows.reverse().map(r => {
-    const washClass = r.washType === 'VIP' ? 'vip' : 'standard';
-    const payClass  = r.paymentType.toLowerCase();
-    return `<tr>
+    const isPending  = r.status === 'Pending';
+    const washClass  = r.washType === 'VIP' ? 'vip' : 'standard';
+    const payClass   = isPending ? 'pending' : r.paymentType.toLowerCase();
+    const rowClass   = isPending ? 'pending-row' : '';
+    const rowData    = JSON.stringify(r).replace(/"/g,"'");
+
+    const statusDot  = `<span class="status-dot ${isPending?'pending':'paid'}"></span>`;
+    const collectBtn = isPending
+      ? `<button class="btn btn-collect" onclick="openCollectModal(${r.rowIndex},'${esc(r.plateNumber)}',${r.cost})">💰 Collect</button>`
+      : '';
+    const editBtn    = `<button class="btn btn-ghost btn-icon" title="Edit" onclick="openEditModal(${r.rowIndex},${rowData})">✏</button>`;
+
+    return `<tr class="${rowClass}">
+      <td>${statusDot}</td>
       <td class="plate-cell">${esc(r.plateNumber)}</td>
       <td>${esc(r.carType)}</td>
       <td><span class="wash-badge ${washClass}">${esc(r.washType)}</span></td>
-      <td class="cost-cell">${r.cost} ₾</td>
-      <td><span class="pay-chip ${payClass}">${esc(r.paymentType)}</span></td>
+      <td style="font-weight:700">${r.cost} ₾</td>
+      <td><span class="pay-chip ${payClass}">${esc(isPending ? 'ტაბი' : r.paymentType)}</span></td>
       <td>${esc(r.box)}</td>
-      <td class="text-muted">${esc(r.timestamp)}</td>
-      <td>
-        <button class="btn btn-ghost btn-icon" title="რედაქტირება"
-          onclick="openEditModal(${r.rowIndex}, ${JSON.stringify(r).replace(/"/g,"'")})">
-          ✏
-        </button>
-      </td>
+      <td style="color:var(--text-muted)">${esc(r.timestamp)}</td>
+      <td style="display:flex;gap:5px;align-items:center">${collectBtn}${editBtn}</td>
     </tr>`;
   }).join('');
 }
 
-// ============================================================
-//  INVENTORY SIDEBAR
-// ============================================================
+// ── COLLECT PAYMENT ───────────────────────────────────────────
+function openCollectModal(rowIndex, plate, cost) {
+  STATE.collectingRow = rowIndex;
+  STATE.collectPayment = null;
+  document.querySelectorAll('.payment-option').forEach(el => el.classList.remove('selected'));
+  document.getElementById('confirm-collect-btn').disabled = true;
+
+  // Show plate + amount in modal title area
+  const titleEl = document.querySelector('#collect-modal .modal-title');
+  if (titleEl) titleEl.textContent = `💰 ${plate} – ${cost} ₾`;
+
+  document.getElementById('collect-modal').classList.add('open');
+}
+
+function closeCollectModal() {
+  document.getElementById('collect-modal').classList.remove('open');
+  STATE.collectingRow  = null;
+  STATE.collectPayment = null;
+}
+
+function selectCollectPayment(type) {
+  STATE.collectPayment = type;
+  document.querySelectorAll('.payment-option').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('.payment-option').forEach(el => {
+    if (el.textContent.includes(type === 'Cash' ? 'Cash' : type === 'Card' ? 'ბარათი' : 'ტალონი'))
+      el.classList.add('selected');
+  });
+  document.getElementById('confirm-collect-btn').disabled = false;
+}
+
+function confirmCollect() {
+  if (STATE.collectingRow === null || !STATE.collectPayment) return;
+  const btn = document.getElementById('confirm-collect-btn');
+  setLoading(btn, true);
+
+  google.script.run
+    .withSuccessHandler(res => {
+      setLoading(btn, false);
+      if (res.success) {
+        toast(`✓ გადახდა მიღებულია – ${STATE.collectPayment}`, 'success');
+        closeCollectModal();
+        loadRecentEntries();
+        refreshStats();
+      } else { toast('შეცდომა: ' + res.message, 'error'); }
+    })
+    .withFailureHandler(err => {
+      setLoading(btn, false);
+      toast('კავშირის შეცდომა: ' + err.message, 'error');
+    })
+    .markAsPaid(STATE.collectingRow, STATE.collectPayment);
+}
+
+// ── INVENTORY ─────────────────────────────────────────────────
 function bindInventoryForm() {
   const form = document.getElementById('inventory-form');
   const btn  = document.getElementById('add-sale-btn');
-
   form.addEventListener('submit', e => {
     e.preventDefault();
     const data = {
@@ -281,24 +352,21 @@ function bindInventoryForm() {
       productId   : document.getElementById('product-id').value.trim()
     };
     if (!data.productName) { toast('პროდუქტის სახელი სავალდებულოა', 'warning'); return; }
-
     setLoading(btn, true);
     google.script.run
       .withSuccessHandler(res => {
         setLoading(btn, false);
         if (res.success) {
-          toast('გაყიდვა დაფიქსირდა ✓', 'success');
+          toast('✓ გაყიდვა დაფიქსირდა', 'success');
           STATE.sessionSales.push({ name: data.productName, qty: data.quantity });
           renderSalesLog();
           form.reset();
           document.getElementById('product-qty').value = 1;
-        } else {
-          toast('შეცდომა: ' + (res.message || ''), 'error');
-        }
+        } else { toast('შეცდომა: ' + (res.message||''), 'error'); }
       })
       .withFailureHandler(err => {
         setLoading(btn, false);
-        toast('კავშირის შეცდომა: ' + err.message, 'error');
+        toast('შეცდომა: ' + err.message, 'error');
       })
       .addInventorySale(data);
   });
@@ -307,12 +375,10 @@ function bindInventoryForm() {
 function renderSalesLog() {
   const ul = document.getElementById('sales-log');
   if (!STATE.sessionSales.length) {
-    ul.innerHTML = '<li style="color:var(--text-dim);font-size:12px;">გაყიდვები არ არის</li>';
-    return;
+    ul.innerHTML = '<li style="color:var(--text-dim);font-size:12px">გაყიდვები არ არის</li>'; return;
   }
   ul.innerHTML = STATE.sessionSales.map(s =>
-    `<li><span class="item-name">${esc(s.name)}</span>
-         <span class="item-qty">x${s.qty}</span></li>`
+    `<li><span class="item-name">${esc(s.name)}</span><span class="item-qty">x${s.qty}</span></li>`
   ).join('');
 }
 
@@ -322,9 +388,7 @@ function bindSidebarToggle() {
   if (btn) btn.addEventListener('click', () => sidebar.classList.toggle('open'));
 }
 
-// ============================================================
-//  EDIT MODAL
-// ============================================================
+// ── EDIT MODAL ────────────────────────────────────────────────
 function openEditModal(rowIndex, row) {
   STATE.editingRow = rowIndex;
   document.getElementById('edit-plate').value    = row.plateNumber;
@@ -332,7 +396,7 @@ function openEditModal(rowIndex, row) {
   document.getElementById('edit-car-type').value = row.carType;
   document.getElementById('edit-wash-type').value= row.washType;
   document.getElementById('edit-cost').value     = row.cost;
-  document.getElementById('edit-payment').value  = row.paymentType;
+  document.getElementById('edit-payment').value  = row.paymentType === 'Pending' ? 'Cash' : row.paymentType;
   document.getElementById('edit-box').value      = row.box;
   document.getElementById('edit-modal').classList.add('open');
 }
@@ -342,7 +406,6 @@ function bindEditModal() {
   document.getElementById('edit-modal').addEventListener('click', e => {
     if (e.target === document.getElementById('edit-modal')) closeEditModal();
   });
-
   document.getElementById('edit-form').addEventListener('submit', e => {
     e.preventDefault();
     const btn  = document.getElementById('save-edit-btn');
@@ -353,26 +416,17 @@ function bindEditModal() {
       washType    : document.getElementById('edit-wash-type').value,
       cost        : parseFloat(document.getElementById('edit-cost').value) || 0,
       paymentType : document.getElementById('edit-payment').value,
-      box         : document.getElementById('edit-box').value
+      box         : document.getElementById('edit-box').value,
+      status      : 'Paid'
     };
-
     setLoading(btn, true);
     google.script.run
       .withSuccessHandler(res => {
         setLoading(btn, false);
-        if (res.success) {
-          toast('ჩანაწერი განახლდა ✓', 'success');
-          closeEditModal();
-          loadRecentEntries();
-          refreshStats();
-        } else {
-          toast('შეცდომა: ' + res.message, 'error');
-        }
+        if (res.success) { toast('✓ ჩანაწერი განახლდა', 'success'); closeEditModal(); loadRecentEntries(); refreshStats(); }
+        else { toast('შეცდომა: ' + res.message, 'error'); }
       })
-      .withFailureHandler(err => {
-        setLoading(btn, false);
-        toast('კავშირის შეცდომა: ' + err.message, 'error');
-      })
+      .withFailureHandler(err => { setLoading(btn, false); toast('შეცდომა: ' + err.message, 'error'); })
       .updateEntry(STATE.editingRow, data);
   });
 }
@@ -382,34 +436,20 @@ function closeEditModal() {
   STATE.editingRow = null;
 }
 
-function closeSummaryModal() {
-  document.getElementById('summary-modal').classList.remove('open');
-  renderStats({ totalWashes:0, cashTotal:0, cardTotal:0, talonCount:0,
-                talonValue:0, vipCount:0, totalRevenue:0, bonusReached:false });
-  renderEntriesTable([]);
-  STATE.sessionSales = [];
-  renderSalesLog();
-}
-
-// ============================================================
-//  CLOSE SHIFT
-// ============================================================
+// ── CLOSE SHIFT ───────────────────────────────────────────────
 function bindShiftButton() {
-  const btn = document.getElementById('close-shift-btn');
-  btn.addEventListener('click', () => {
+  document.getElementById('close-shift-btn').addEventListener('click', () => {
     document.getElementById('confirm-modal').classList.add('open');
   });
-
   document.getElementById('confirm-yes').addEventListener('click', () => {
     document.getElementById('confirm-modal').classList.remove('open');
     executeCloseShift();
   });
-
   document.getElementById('confirm-no').addEventListener('click', () => {
     document.getElementById('confirm-modal').classList.remove('open');
   });
 
-  ['close-summary-modal', 'close-summary-btn'].forEach(id => {
+  ['close-summary-modal','close-summary-btn'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('click', closeSummaryModal);
   });
@@ -418,86 +458,87 @@ function bindShiftButton() {
 function executeCloseShift() {
   const btn = document.getElementById('close-shift-btn');
   setLoading(btn, true);
-
   google.script.run
     .withSuccessHandler(res => {
       setLoading(btn, false);
       if (res.success) {
-        toast('ცვლა დახურულია. არქივი: ' + res.summary.archivedTo, 'success');
+        toast('✓ ცვლა დახურულია – ' + res.summary.archivePath, 'success');
         renderShiftSummary(res.summary);
         document.getElementById('summary-modal').classList.add('open');
-      } else {
-        toast('შეცდომა: ' + res.message, 'error');
-      }
+      } else { toast('შეცდომა: ' + res.message, 'error'); }
     })
     .withFailureHandler(err => {
       setLoading(btn, false);
-      toast('კავშირის შეცდომა: ' + err.message, 'error');
+      toast('შეცდომა: ' + err.message, 'error');
     })
     .closeShift(STATE.managerName);
 }
 
 function renderShiftSummary(s) {
-  // Revenue cards
-  document.getElementById('sum-washes').textContent   = s.totalWashes;
-  document.getElementById('sum-revenue').textContent  = formatGEL(s.totalRevenue);
-  document.getElementById('sum-cash').textContent     = formatGEL(s.cashTotal);
-  document.getElementById('sum-card').textContent     = formatGEL(s.cardTotal);
-  document.getElementById('sum-talon').textContent    = s.talonCount + ' ერთ. / ' + formatGEL(s.talonValue);
-  document.getElementById('sum-vip').textContent      = s.vipCount + ' რეცხ.';
-
-  // Expenses
-  document.getElementById('sum-washer').textContent   = formatGEL(s.washerTotal);
-  document.getElementById('sum-mgr-base').textContent = formatGEL(s.managerBase);
-  document.getElementById('sum-mgr-vip').textContent  = formatGEL(s.managerVIPBonus);
-  document.getElementById('sum-mgr-daily').textContent= formatGEL(s.dailyBonus);
-  document.getElementById('sum-mgr-total').textContent= formatGEL(s.managerTotal);
-  document.getElementById('sum-expenses').textContent = formatGEL(s.totalExpenses);
-  document.getElementById('sum-remain-c').textContent = formatGEL(s.remainCash);
-  document.getElementById('sum-remain-cc').textContent= formatGEL(s.remainCashCard);
-  document.getElementById('sum-archived').textContent = s.archivedTo;
   document.getElementById('sum-date').textContent     = s.date;
+  document.getElementById('sum-revenue').textContent  = fmt(s.totalRevenue);
+  document.getElementById('sum-washes').textContent   = s.totalWashes;
+  document.getElementById('sum-cash').textContent     = fmt(s.cashTotal);
+  document.getElementById('sum-card').textContent     = fmt(s.cardTotal);
+  document.getElementById('sum-vip').textContent      = s.vipCount + ' რეცხ.';
+  document.getElementById('sum-pending').textContent  = s.pendingCount + ' / ' + fmt(s.pendingTotal);
+  document.getElementById('sum-washer').textContent   = fmt(s.washerTotal);
+  document.getElementById('sum-mgr-base').textContent = fmt(s.managerBase);
+  document.getElementById('sum-mgr-vip').textContent  = fmt(s.managerVIPBonus);
+  document.getElementById('sum-mgr-daily').textContent= fmt(s.dailyBonus);
+  document.getElementById('sum-mgr-total').textContent= fmt(s.managerTotal);
+  document.getElementById('sum-expenses').textContent = fmt(s.totalExpenses);
+  document.getElementById('sum-remain-cc').textContent= fmt(s.remainCashCard);
+  document.getElementById('sum-archive-path').textContent = s.archivePath;
+  const archiveLink = document.getElementById('sum-archive-url');
+  if (archiveLink) archiveLink.href = s.archiveUrl || '#';
 
-  // Bonus alert
-  const bonusAlert = document.getElementById('sum-bonus-alert');
-  if (s.bonusReached) bonusAlert.classList.add('show');
-  else                bonusAlert.classList.remove('show');
+  if (s.bonusReached) document.getElementById('sum-bonus-alert').classList.add('show');
+  else                document.getElementById('sum-bonus-alert').classList.remove('show');
+
+  // Box breakdown
+  const boxDiv = document.getElementById('sum-box-breakdown');
+  if (boxDiv && s.boxSalaries) {
+    boxDiv.innerHTML = ['Box 1','Box 2','Box 3','Box 4'].map(b => `
+      <div class="box-item">
+        <div class="bi-label">${b}</div>
+        <div class="bi-value">${fmt(s.boxSalaries[b] || 0)}</div>
+        <div class="bi-sub">${s.boxWashes[b] || 0} რეცხ.</div>
+      </div>`).join('');
+  }
 }
 
-// ============================================================
-//  UTILITIES
-// ============================================================
-function formatGEL(n) {
-  return (parseFloat(n) || 0).toFixed(2) + ' ₾';
+function closeSummaryModal() {
+  document.getElementById('summary-modal').classList.remove('open');
+  renderStats({ totalWashes:0, pendingCount:0, pendingValue:0, cashTotal:0, cardTotal:0,
+                talonCount:0, talonValue:0, vipCount:0, totalRevenue:0,
+                bonusReached:false, boxData:{} });
+  renderEntriesTable([]);
+  STATE.sessionSales = [];
+  renderSalesLog();
 }
+
+// ── UTILITIES ─────────────────────────────────────────────────
+function fmt(n) { return (parseFloat(n)||0).toFixed(2) + ' ₾'; }
 
 function esc(str) {
-  return String(str || '')
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;');
+  return String(str||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function setLoading(btn, loading) {
   if (!btn) return;
-  if (loading) {
-    btn._text = btn.innerHTML;
-    btn.innerHTML = '<span class="spinner"></span>';
-    btn.disabled = true;
-  } else {
-    btn.innerHTML = btn._text || '';
-    btn.disabled = false;
-  }
+  if (loading) { btn._text = btn.innerHTML; btn.innerHTML = '<span class="spinner"></span>'; btn.disabled = true; }
+  else         { btn.innerHTML = btn._text||''; btn.disabled = false; }
 }
 
-// ── TOAST ─────────────────────────────────────────────────────
 function toast(msg, type) {
   type = type || 'info';
-  const icons = { success: '✓', error: '✕', info: 'ℹ', warning: '⚠' };
+  const icons = { success:'✓', error:'✕', info:'ℹ', warning:'⚠' };
   const el = document.createElement('div');
   el.className = `toast ${type}`;
-  el.innerHTML = `<span>${icons[type] || ''}</span><span>${msg}</span>`;
+  el.innerHTML = `<span>${icons[type]||''}</span><span>${msg}</span>`;
   document.getElementById('toast-container').appendChild(el);
-  setTimeout(() => el.remove(), 3500);
+  setTimeout(() => el.remove(), 3800);
 }
