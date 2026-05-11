@@ -80,6 +80,16 @@ function getWebAppUrl() {
   return ScriptApp.getService().getUrl();
 }
 
+// ── Run this ONCE from the Apps Script editor to grant Drive access ──
+function authorizeAll() {
+  // Touch every service so Google shows the full permission dialog
+  SpreadsheetApp.openById(SPREADSHEET_ID);
+  DriveApp.getRootFolder();
+  PropertiesService.getScriptProperties().getProperty('test');
+  Logger.log('Authorization complete. All scopes granted.');
+  return 'OK';
+}
+
 // ============================================================
 //  AUTH & SESSION
 // ============================================================
@@ -370,26 +380,20 @@ function closeShift(managerName) {
     sumSheet.getRange(1,1,summaryRows.length,7).setValues(summaryRows);
     sumSheet.getRange('A1').setFontWeight('bold').setFontSize(13);
 
-    // ── Create Archive Sheet in Drive folder ─────────────
+    // ── Create Archive Sheet (with Drive folder if authorized) ─
     const monthFolderName = Utilities.formatDate(today, tz, 'MMMM yyyy');
     const archiveName     = 'ESGMall ' + Utilities.formatDate(today, tz, 'dd/MM/yyyy');
 
-    const rootIter   = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
-    const rootFolder = rootIter.hasNext() ? rootIter.next() : DriveApp.createFolder(ROOT_FOLDER_NAME);
+    // SpreadsheetApp.create() only needs Spreadsheets scope — always works
+    const archiveSS = SpreadsheetApp.create(archiveName);
 
-    const mthIter    = rootFolder.getFoldersByName(monthFolderName);
-    const mthFolder  = mthIter.hasNext() ? mthIter.next() : rootFolder.createFolder(monthFolderName);
-
-    const archiveSS  = SpreadsheetApp.create(archiveName);
-    DriveApp.getFileById(archiveSS.getId()).moveTo(mthFolder);
-
-    // Summary tab in archive
+    // Summary tab
     const archSum = archiveSS.getSheets()[0];
     archSum.setName('Summary');
     archSum.getRange(1,1,summaryRows.length,7).setValues(summaryRows);
     archSum.getRange('A1').setFontWeight('bold');
 
-    // Raw data tab in archive
+    // Raw data tab
     const archRaw = archiveSS.insertSheet('Raw Data');
     archRaw.appendRow(['Date','Plate','Car Type','Wash Type','Cost','Payment','Box','Notes','Status']);
     entries.forEach(row => {
@@ -399,6 +403,21 @@ function closeShift(managerName) {
         row[COL.NOTES]||'', row[COL.STATUS]||'Paid'
       ]);
     });
+
+    // Try to move into ESG CarWash / May 2026 folder — needs Drive scope
+    // If not yet authorized, file stays in Drive root (still accessible)
+    let archivePath = archiveName + ' (Drive root)';
+    try {
+      const rootIter   = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
+      const rootFolder = rootIter.hasNext() ? rootIter.next() : DriveApp.createFolder(ROOT_FOLDER_NAME);
+      const mthIter    = rootFolder.getFoldersByName(monthFolderName);
+      const mthFolder  = mthIter.hasNext() ? mthIter.next() : rootFolder.createFolder(monthFolderName);
+      DriveApp.getFileById(archiveSS.getId()).moveTo(mthFolder);
+      archivePath = ROOT_FOLDER_NAME + ' / ' + monthFolderName + ' / ' + archiveName;
+    } catch(driveErr) {
+      // Drive not yet authorized — file saved in Drive root, still works
+      Logger.log('Drive folder skipped: ' + driveErr.message);
+    }
 
     // ── Clear Daily & Daily_Sales ────────────────────────
     const dailySheet = _getSheet(SH.DAILY);
@@ -422,7 +441,7 @@ function closeShift(managerName) {
         managerBase:MANAGER_BASE, managerVIPBonus, dailyBonus, managerTotal,
         totalExpenses, remainCashCard,
         bonusReached: dailyBonus>0,
-        archivePath : ROOT_FOLDER_NAME+' / '+monthFolderName+' / '+archiveName,
+        archivePath : archivePath,
         archiveUrl  : archiveSS.getUrl()
       }
     };
