@@ -4,7 +4,7 @@
 // ============================================================
 
 // ── USER CONFIG ─────────────────────────────────────────────
-const SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID_HERE'; // Paste your Google Sheet ID here
+const SPREADSHEET_ID = '1ufhpPY_J366QJ1qf5wEjpvlbHVORIZX59EBwbn3NZsc';
 const MANAGER_PIN    = '2329';
 
 // ── SALARY RULES ────────────────────────────────────────────
@@ -35,11 +35,19 @@ const PRICES = {
 //  WEB APP ENTRY POINT
 // ============================================================
 function doGet(e) {
+  _autoSetup();
   return HtmlService.createTemplateFromFile('index')
     .evaluate()
     .setTitle('ESG Manager Terminal')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function _autoSetup() {
+  try {
+    const ss = _getSS();
+    if (!ss.getSheetByName(SH.DAILY)) setupSpreadsheet();
+  } catch(e) {}
 }
 
 function include(filename) {
@@ -352,6 +360,39 @@ function closeShift(managerName) {
   } catch (e) {
     return { success: false, message: e.message };
   }
+}
+
+// ============================================================
+//  CREATE + SETUP – called once by clasp run to bootstrap
+// ============================================================
+function createAndSetupSheet() {
+  const ss  = SpreadsheetApp.create('ESG Car Wash Manager – Data');
+  const id  = ss.getId();
+  const url = ss.getUrl();
+
+  ss.getSheets()[0].setName('Daily');
+  ['Summary','Daily_Sales','Data','Lists'].forEach(name => ss.insertSheet(name));
+
+  const daily = ss.getSheetByName('Daily');
+  daily.appendRow(['Plate Number','Car Type','Wash Type','Cost','Payment Type','Box','Timestamp','Notes']);
+  daily.getRange('1:1').setFontWeight('bold');
+
+  const sales = ss.getSheetByName('Daily_Sales');
+  sales.appendRow(['Product Name','Quantity','Product ID','Status','Timeline']);
+  sales.getRange('1:1').setFontWeight('bold');
+
+  const lists = ss.getSheetByName('Lists');
+  lists.getRange('A1:F1').setValues([['Car Types','General Wash Types','Boxes','Payments','Map Car Type','Map Wash Type']]);
+  lists.getRange('A2:D6').setValues([
+    ['სედანი',  'სტანდარტი', 'Box 1', 'Cash', '', ''],
+    ['ჯიპი',   'VIP',       'Box 2', 'Card',  '', ''],
+    ['ჯიპი XL','შიგნიდან',  'Box 3', 'Talon', '', ''],
+    ['',        'გარედან',  'Box 4', '', '', ''],
+    ['',        'ორივე',    '', '',     '', '']
+  ]);
+
+  Logger.log('SPREADSHEET_ID=' + id);
+  return { id: id, url: url };
 }
 
 // ============================================================

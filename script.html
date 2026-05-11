@@ -1,0 +1,506 @@
+﻿<script>
+// ============================================================
+//  ESG Car Wash Manager Terminal – Client-Side Logic
+//  script.js  (rename to script.html for GAS, wrap in <script>)
+// ============================================================
+
+'use strict';
+
+// ── STATE ─────────────────────────────────────────────────────
+const STATE = {
+  managerName : '',
+  lists       : null,
+  sessionSales: [],
+  editingRow  : null,
+  statsTimer  : null
+};
+
+// ── PRICE TABLE (mirrors Code.gs – used for instant UI feedback) ──
+const PRICES = {
+  'სედანი'   : { 'სტანდარტი': 30, 'VIP': 80,  'შიგნიდან': 15, 'გარედან': 15, 'ორივე': 30, 'სხვა': 0 },
+  'ჯიპი'     : { 'სტანდარტი': 40, 'VIP': 120, 'შიგნიდან': 20, 'გარედან': 20, 'ორივე': 40, 'სხვა': 0 },
+  'ჯიპი XL'  : { 'სტანდარტი': 50, 'VIP': 150, 'შიგნიდან': 25, 'გარედან': 25, 'ორივე': 50, 'სხვა': 0 }
+};
+
+// ============================================================
+//  BOOT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  bindLoginForm();
+  bindEntryForm();
+  bindInventoryForm();
+  bindShiftButton();
+  bindEditModal();
+  bindSidebarToggle();
+});
+
+// ============================================================
+//  LOGIN
+// ============================================================
+function bindLoginForm() {
+  const form    = document.getElementById('login-form');
+  const errEl   = document.getElementById('login-error');
+  const btn     = document.getElementById('login-btn');
+  const pinInp  = document.getElementById('pin');
+
+  // Show/hide PIN dots
+  pinInp.addEventListener('input', () => {
+    pinInp.value = pinInp.value.replace(/\D/g, '').slice(0, 6);
+  });
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const name = document.getElementById('manager-name').value.trim();
+    const pin  = pinInp.value;
+
+    if (!name) { showLoginError('გთხოვთ შეიყვანოთ სახელი'); return; }
+    if (!pin)  { showLoginError('გთხოვთ შეიყვანოთ PIN');   return; }
+
+    setLoading(btn, true);
+    google.script.run
+      .withSuccessHandler(res => {
+        setLoading(btn, false);
+        if (res.success) { onLoginSuccess(res.managerName); }
+        else             { showLoginError(res.message); }
+      })
+      .withFailureHandler(err => {
+        setLoading(btn, false);
+        showLoginError('კავშირის შეცდომა: ' + err.message);
+      })
+      .login(name, pin);
+  });
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+function onLoginSuccess(name) {
+  STATE.managerName = name;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+  document.getElementById('manager-name-display').textContent = name;
+
+  // Load lists then init
+  google.script.run
+    .withSuccessHandler(lists => {
+      STATE.lists = lists;
+      populateDropdowns();
+      loadRecentEntries();
+      refreshStats();
+      STATE.statsTimer = setInterval(refreshStats, 30000);
+    })
+    .withFailureHandler(err => toast('სიების ჩატვირთვა ვერ მოხერხდა: ' + err.message, 'error'))
+    .getListsData();
+}
+
+// ============================================================
+//  DROPDOWN POPULATION
+// ============================================================
+function populateDropdowns() {
+  const { carTypes, washTypes, boxes, payments } = STATE.lists;
+
+  fillSelect('car-type',   carTypes);
+  fillSelect('wash-type',  washTypes);
+  fillSelect('box',        boxes);
+  fillSelect('payment',    payments);
+
+  fillSelect('edit-car-type',  carTypes);
+  fillSelect('edit-wash-type', washTypes);
+  fillSelect('edit-box',       boxes);
+  fillSelect('edit-payment',   payments);
+}
+
+function fillSelect(id, items) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  sel.innerHTML = items.map(v => `<option value="${v}">${v}</option>`).join('');
+}
+
+// ============================================================
+//  ENTRY FORM
+// ============================================================
+function bindEntryForm() {
+  const carSel   = document.getElementById('car-type');
+  const washSel  = document.getElementById('wash-type');
+  const paySel   = document.getElementById('payment');
+  const costInp  = document.getElementById('cost');
+  const form     = document.getElementById('entry-form');
+  const submitBtn= document.getElementById('submit-entry-btn');
+
+  // Auto-fill price when car/wash changes
+  function autoPrice() {
+    if (!carSel.value || !washSel.value) return;
+    const p = (PRICES[carSel.value] || {})[washSel.value];
+    if (p !== undefined) costInp.value = p;
+    updateVIPIndicator();
+  }
+
+  carSel.addEventListener('change', autoPrice);
+  washSel.addEventListener('change', autoPrice);
+  paySel.addEventListener('change', updateTalonBadge);
+
+  function updateVIPIndicator() {
+    const el = document.getElementById('vip-indicator');
+    if (washSel.value === 'VIP') el.classList.add('show');
+    else                          el.classList.remove('show');
+  }
+
+  function updateTalonBadge() {
+    const el = document.getElementById('talon-badge');
+    if (paySel.value === 'Talon') el.classList.add('show');
+    else                           el.classList.remove('show');
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const data = {
+      plateNumber : document.getElementById('plate').value.trim(),
+      loyaltyCode : document.getElementById('loyalty').value.trim(),
+      carType     : carSel.value,
+      washType    : washSel.value,
+      cost        : parseFloat(costInp.value) || 0,
+      paymentType : paySel.value,
+      box         : document.getElementById('box').value
+    };
+
+    if (!data.plateNumber) { toast('მანქანის ნომერი სავალდებულოა', 'warning'); return; }
+    if (!data.carType)     { toast('მანქანის ტიპი სავალდებულოა',    'warning'); return; }
+
+    setLoading(submitBtn, true);
+    google.script.run
+      .withSuccessHandler(res => {
+        setLoading(submitBtn, false);
+        if (res.success) {
+          toast('ჩანაწერი დამატებულია ✓', 'success');
+          form.reset();
+          // Re-select first options after reset
+          if (STATE.lists) {
+            document.getElementById('car-type').value  = STATE.lists.carTypes[0];
+            document.getElementById('wash-type').value = STATE.lists.washTypes[0];
+            document.getElementById('box').value       = STATE.lists.boxes[0];
+            document.getElementById('payment').value   = STATE.lists.payments[0];
+            autoPrice();
+          }
+          document.getElementById('vip-indicator').classList.remove('show');
+          document.getElementById('talon-badge').classList.remove('show');
+          loadRecentEntries();
+          refreshStats();
+        } else {
+          toast('შეცდომა: ' + res.message, 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        setLoading(submitBtn, false);
+        toast('კავშირის შეცდომა: ' + err.message, 'error');
+      })
+      .addEntry(data);
+  });
+}
+
+// ============================================================
+//  LIVE STATS
+// ============================================================
+function refreshStats() {
+  google.script.run
+    .withSuccessHandler(s => renderStats(s))
+    .withFailureHandler(() => {})
+    .getDashboardStats();
+}
+
+function renderStats(s) {
+  setChip('stat-washes',  s.totalWashes);
+  setChip('stat-cash',    formatGEL(s.cashTotal));
+  setChip('stat-card',    formatGEL(s.cardTotal));
+  setChip('stat-talon',   s.talonCount + ' / ' + formatGEL(s.talonValue));
+  setChip('stat-vip',     s.vipCount);
+  setChip('stat-revenue', formatGEL(s.totalRevenue));
+
+  const bonusEl = document.getElementById('bonus-badge');
+  if (s.bonusReached) bonusEl.classList.add('visible');
+  else                bonusEl.classList.remove('visible');
+}
+
+function setChip(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+// ============================================================
+//  RECENT ENTRIES TABLE
+// ============================================================
+function loadRecentEntries() {
+  google.script.run
+    .withSuccessHandler(rows => renderEntriesTable(rows))
+    .withFailureHandler(err => toast('ჩანაწერების ჩატვირთვა ვერ მოხერხდა', 'error'))
+    .getRecentEntries(10);
+}
+
+function renderEntriesTable(rows) {
+  const tbody = document.getElementById('entries-tbody');
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = `<tr class="empty-row">
+      <td colspan="8">დღეს ჩანაწერები არ არის</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.reverse().map(r => {
+    const washClass = r.washType === 'VIP' ? 'vip' : 'standard';
+    const payClass  = r.paymentType.toLowerCase();
+    return `<tr>
+      <td class="plate-cell">${esc(r.plateNumber)}</td>
+      <td>${esc(r.carType)}</td>
+      <td><span class="wash-badge ${washClass}">${esc(r.washType)}</span></td>
+      <td class="cost-cell">${r.cost} ₾</td>
+      <td><span class="pay-chip ${payClass}">${esc(r.paymentType)}</span></td>
+      <td>${esc(r.box)}</td>
+      <td class="text-muted">${esc(r.timestamp)}</td>
+      <td>
+        <button class="btn btn-ghost btn-icon" title="რედაქტირება"
+          onclick="openEditModal(${r.rowIndex}, ${JSON.stringify(r).replace(/"/g,"'")})">
+          ✏
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ============================================================
+//  INVENTORY SIDEBAR
+// ============================================================
+function bindInventoryForm() {
+  const form = document.getElementById('inventory-form');
+  const btn  = document.getElementById('add-sale-btn');
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const data = {
+      productName : document.getElementById('product-name').value.trim(),
+      quantity    : parseFloat(document.getElementById('product-qty').value) || 1,
+      productId   : document.getElementById('product-id').value.trim()
+    };
+    if (!data.productName) { toast('პროდუქტის სახელი სავალდებულოა', 'warning'); return; }
+
+    setLoading(btn, true);
+    google.script.run
+      .withSuccessHandler(res => {
+        setLoading(btn, false);
+        if (res.success) {
+          toast('გაყიდვა დაფიქსირდა ✓', 'success');
+          STATE.sessionSales.push({ name: data.productName, qty: data.quantity });
+          renderSalesLog();
+          form.reset();
+          document.getElementById('product-qty').value = 1;
+        } else {
+          toast('შეცდომა: ' + (res.message || ''), 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        setLoading(btn, false);
+        toast('კავშირის შეცდომა: ' + err.message, 'error');
+      })
+      .addInventorySale(data);
+  });
+}
+
+function renderSalesLog() {
+  const ul = document.getElementById('sales-log');
+  if (!STATE.sessionSales.length) {
+    ul.innerHTML = '<li style="color:var(--text-dim);font-size:12px;">გაყიდვები არ არის</li>';
+    return;
+  }
+  ul.innerHTML = STATE.sessionSales.map(s =>
+    `<li><span class="item-name">${esc(s.name)}</span>
+         <span class="item-qty">x${s.qty}</span></li>`
+  ).join('');
+}
+
+function bindSidebarToggle() {
+  const btn     = document.getElementById('sidebar-toggle-btn');
+  const sidebar = document.getElementById('sidebar');
+  if (btn) btn.addEventListener('click', () => sidebar.classList.toggle('open'));
+}
+
+// ============================================================
+//  EDIT MODAL
+// ============================================================
+function openEditModal(rowIndex, row) {
+  STATE.editingRow = rowIndex;
+  document.getElementById('edit-plate').value    = row.plateNumber;
+  document.getElementById('edit-loyalty').value  = row.notes;
+  document.getElementById('edit-car-type').value = row.carType;
+  document.getElementById('edit-wash-type').value= row.washType;
+  document.getElementById('edit-cost').value     = row.cost;
+  document.getElementById('edit-payment').value  = row.paymentType;
+  document.getElementById('edit-box').value      = row.box;
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function bindEditModal() {
+  document.getElementById('close-edit-modal').addEventListener('click', closeEditModal);
+  document.getElementById('edit-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('edit-modal')) closeEditModal();
+  });
+
+  document.getElementById('edit-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const btn  = document.getElementById('save-edit-btn');
+    const data = {
+      plateNumber : document.getElementById('edit-plate').value.trim(),
+      loyaltyCode : document.getElementById('edit-loyalty').value.trim(),
+      carType     : document.getElementById('edit-car-type').value,
+      washType    : document.getElementById('edit-wash-type').value,
+      cost        : parseFloat(document.getElementById('edit-cost').value) || 0,
+      paymentType : document.getElementById('edit-payment').value,
+      box         : document.getElementById('edit-box').value
+    };
+
+    setLoading(btn, true);
+    google.script.run
+      .withSuccessHandler(res => {
+        setLoading(btn, false);
+        if (res.success) {
+          toast('ჩანაწერი განახლდა ✓', 'success');
+          closeEditModal();
+          loadRecentEntries();
+          refreshStats();
+        } else {
+          toast('შეცდომა: ' + res.message, 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        setLoading(btn, false);
+        toast('კავშირის შეცდომა: ' + err.message, 'error');
+      })
+      .updateEntry(STATE.editingRow, data);
+  });
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+  STATE.editingRow = null;
+}
+
+function closeSummaryModal() {
+  document.getElementById('summary-modal').classList.remove('open');
+  renderStats({ totalWashes:0, cashTotal:0, cardTotal:0, talonCount:0,
+                talonValue:0, vipCount:0, totalRevenue:0, bonusReached:false });
+  renderEntriesTable([]);
+  STATE.sessionSales = [];
+  renderSalesLog();
+}
+
+// ============================================================
+//  CLOSE SHIFT
+// ============================================================
+function bindShiftButton() {
+  const btn = document.getElementById('close-shift-btn');
+  btn.addEventListener('click', () => {
+    document.getElementById('confirm-modal').classList.add('open');
+  });
+
+  document.getElementById('confirm-yes').addEventListener('click', () => {
+    document.getElementById('confirm-modal').classList.remove('open');
+    executeCloseShift();
+  });
+
+  document.getElementById('confirm-no').addEventListener('click', () => {
+    document.getElementById('confirm-modal').classList.remove('open');
+  });
+
+  ['close-summary-modal', 'close-summary-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', closeSummaryModal);
+  });
+}
+
+function executeCloseShift() {
+  const btn = document.getElementById('close-shift-btn');
+  setLoading(btn, true);
+
+  google.script.run
+    .withSuccessHandler(res => {
+      setLoading(btn, false);
+      if (res.success) {
+        toast('ცვლა დახურულია. არქივი: ' + res.summary.archivedTo, 'success');
+        renderShiftSummary(res.summary);
+        document.getElementById('summary-modal').classList.add('open');
+      } else {
+        toast('შეცდომა: ' + res.message, 'error');
+      }
+    })
+    .withFailureHandler(err => {
+      setLoading(btn, false);
+      toast('კავშირის შეცდომა: ' + err.message, 'error');
+    })
+    .closeShift(STATE.managerName);
+}
+
+function renderShiftSummary(s) {
+  // Revenue cards
+  document.getElementById('sum-washes').textContent   = s.totalWashes;
+  document.getElementById('sum-revenue').textContent  = formatGEL(s.totalRevenue);
+  document.getElementById('sum-cash').textContent     = formatGEL(s.cashTotal);
+  document.getElementById('sum-card').textContent     = formatGEL(s.cardTotal);
+  document.getElementById('sum-talon').textContent    = s.talonCount + ' ერთ. / ' + formatGEL(s.talonValue);
+  document.getElementById('sum-vip').textContent      = s.vipCount + ' რეცხ.';
+
+  // Expenses
+  document.getElementById('sum-washer').textContent   = formatGEL(s.washerTotal);
+  document.getElementById('sum-mgr-base').textContent = formatGEL(s.managerBase);
+  document.getElementById('sum-mgr-vip').textContent  = formatGEL(s.managerVIPBonus);
+  document.getElementById('sum-mgr-daily').textContent= formatGEL(s.dailyBonus);
+  document.getElementById('sum-mgr-total').textContent= formatGEL(s.managerTotal);
+  document.getElementById('sum-expenses').textContent = formatGEL(s.totalExpenses);
+  document.getElementById('sum-remain-c').textContent = formatGEL(s.remainCash);
+  document.getElementById('sum-remain-cc').textContent= formatGEL(s.remainCashCard);
+  document.getElementById('sum-archived').textContent = s.archivedTo;
+  document.getElementById('sum-date').textContent     = s.date;
+
+  // Bonus alert
+  const bonusAlert = document.getElementById('sum-bonus-alert');
+  if (s.bonusReached) bonusAlert.classList.add('show');
+  else                bonusAlert.classList.remove('show');
+}
+
+// ============================================================
+//  UTILITIES
+// ============================================================
+function formatGEL(n) {
+  return (parseFloat(n) || 0).toFixed(2) + ' ₾';
+}
+
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function setLoading(btn, loading) {
+  if (!btn) return;
+  if (loading) {
+    btn._text = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner"></span>';
+    btn.disabled = true;
+  } else {
+    btn.innerHTML = btn._text || '';
+    btn.disabled = false;
+  }
+}
+
+// ── TOAST ─────────────────────────────────────────────────────
+function toast(msg, type) {
+  type = type || 'info';
+  const icons = { success: '✓', error: '✕', info: 'ℹ', warning: '⚠' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${icons[type] || ''}</span><span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+</script>
