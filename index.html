@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<!--
+  ESG Car Wash Manager Terminal – index.html
+  GAS deployment: this file uses <?!= include('style'); ?> and <?!= include('script'); ?>
+  style.css → rename to style.html (wrap CSS in <style> tags)
+  script.js → rename to script.html (wrap JS in <script> tags)
+-->
+<html lang="ka">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESG Manager Terminal</title>
+  <?!= include('style'); ?>
+</head>
+<body>
+
+<!-- ============================================================
+     LOGIN SCREEN
+     ============================================================ -->
+<div id="login-screen">
+  <div class="login-card">
+
+    <!-- ESG Logo -->
+    <div class="logo-wrap">
+      <div class="logo-badge">
+        <svg class="logo-text-svg" viewBox="0 0 60 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- E -->
+          <text x="0"  y="26" font-family="Arial" font-weight="900" font-size="28" fill="white">E</text>
+          <!-- S -->
+          <text x="19" y="26" font-family="Arial" font-weight="900" font-size="28" fill="white">S</text>
+          <!-- G -->
+          <text x="38" y="26" font-family="Arial" font-weight="900" font-size="28" fill="white">G</text>
+        </svg>
+      </div>
+      <div class="logo-title">E<span>S</span>G</div>
+      <div class="logo-sub">Car Wash&nbsp;&nbsp;·&nbsp;&nbsp;Manager Terminal</div>
+    </div>
+
+    <!-- Error -->
+    <div class="login-error" id="login-error"></div>
+
+    <!-- Form -->
+    <form class="login-form" id="login-form" autocomplete="off">
+
+      <div class="form-group">
+        <label>მენეჯერის სახელი</label>
+        <div class="input-wrap">
+          <span class="input-icon">👤</span>
+          <input type="text" id="manager-name" placeholder="სახელი" required autofocus>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>PIN კოდი</label>
+        <div class="input-wrap">
+          <span class="input-icon">🔑</span>
+          <input type="password" id="pin" placeholder="••••" maxlength="6" required
+                 inputmode="numeric" pattern="\d*">
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-full" id="login-btn"
+              style="margin-top:8px; padding:13px; font-size:15px; letter-spacing:1px;">
+        შესვლა
+      </button>
+
+    </form>
+
+    <p style="text-align:center;margin-top:18px;font-size:11px;color:var(--text-dim);">
+      ESG &copy; 2026 &nbsp;·&nbsp; Powered by Google Apps Script
+    </p>
+  </div>
+</div>
+
+<!-- ============================================================
+     MAIN APP
+     ============================================================ -->
+<div id="app">
+
+  <!-- ── HEADER ─────────────────────────────────────────────── -->
+  <header class="app-header">
+
+    <div class="header-logo">
+      <div class="header-logo-badge">ESG</div>
+      <div>
+        <div class="header-logo-text">E<span>S</span>G</div>
+        <div class="header-subtitle">Manager Terminal</div>
+      </div>
+    </div>
+
+    <!-- Live stats strip -->
+    <div class="header-stats">
+      <div class="stat-chip">
+        <span class="chip-label">სულ</span>
+        <span class="chip-value" id="stat-washes">0</span>
+      </div>
+      <div class="stat-chip chip-cash">
+        <span class="chip-label">ქეში</span>
+        <span class="chip-value" id="stat-cash">0.00 ₾</span>
+      </div>
+      <div class="stat-chip">
+        <span class="chip-label">ბარათი</span>
+        <span class="chip-value" id="stat-card">0.00 ₾</span>
+      </div>
+      <div class="stat-chip chip-talon">
+        <span class="chip-label">ტალონი</span>
+        <span class="chip-value" id="stat-talon">0</span>
+      </div>
+      <div class="stat-chip chip-vip">
+        <span class="chip-label">VIP</span>
+        <span class="chip-value" id="stat-vip">0</span>
+      </div>
+      <div class="stat-chip chip-total">
+        <span class="chip-label">შემოსავალი</span>
+        <span class="chip-value" id="stat-revenue">0.00 ₾</span>
+      </div>
+      <div class="bonus-badge" id="bonus-badge">🎯 +50₾ ბონუსი!</div>
+    </div>
+
+    <div class="header-actions">
+      <div class="manager-tag">
+        <div class="dot"></div>
+        <span id="manager-name-display">—</span>
+      </div>
+      <button class="btn btn-ghost btn-icon" id="sidebar-toggle-btn" title="ინვენტარი">📦</button>
+      <button class="btn btn-danger" id="close-shift-btn">🔒 ცვლის დახურვა</button>
+    </div>
+
+  </header>
+
+  <!-- ── BODY ───────────────────────────────────────────────── -->
+  <div class="app-body">
+
+    <!-- ── SIDEBAR (Inventory) ─────────────────────────────── -->
+    <aside class="sidebar" id="sidebar">
+
+      <div class="sidebar-header">
+        <span class="sidebar-title">📦 ინვენტარი / გაყიდვები</span>
+      </div>
+
+      <div class="sidebar-body">
+
+        <div class="sidebar-section">
+          <h4>პროდუქტის გაყიდვა</h4>
+          <form id="inventory-form" autocomplete="off">
+
+            <div class="form-group" style="margin-bottom:10px;">
+              <label>პროდუქტის სახელი</label>
+              <div class="input-wrap">
+                <span class="input-icon">🏷</span>
+                <input type="text" id="product-name" placeholder="მაგ. სუნამო, ცვილი...">
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:10px;">
+              <label>ID (სურვილისამებრ)</label>
+              <div class="input-wrap">
+                <span class="input-icon">#</span>
+                <input type="text" id="product-id" placeholder="SKU / კოდი">
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:12px;">
+              <label>რაოდენობა</label>
+              <div class="input-wrap">
+                <span class="input-icon">🔢</span>
+                <input type="number" id="product-qty" value="1" min="1" step="1">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-success btn-full" id="add-sale-btn">
+              + გაყიდვა
+            </button>
+          </form>
+        </div>
+
+        <div class="sidebar-section">
+          <h4>დღის გაყიდვები</h4>
+          <ul class="sales-log" id="sales-log">
+            <li style="color:var(--text-dim);font-size:12px;">გაყიდვები არ არის</li>
+          </ul>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- ── MAIN CONTENT ─────────────────────────────────────── -->
+    <main class="main-content">
+      <div class="content-scroll">
+
+        <!-- ── ENTRY FORM ────────────────────────────────────── -->
+        <div class="section-label">⚡ ახალი ჩანაწერი</div>
+
+        <div class="form-card">
+          <form id="entry-form" autocomplete="off">
+
+            <!-- Row 1 -->
+            <div class="form-grid">
+              <div class="form-group">
+                <label>მანქანის ნომერი *</label>
+                <div class="input-wrap">
+                  <span class="input-icon">🚗</span>
+                  <input type="text" id="plate" placeholder="მაგ. AA-123-BB"
+                         style="text-transform:uppercase;" required>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>ლოიალობის კოდი</label>
+                <div class="input-wrap">
+                  <span class="input-icon">🎫</span>
+                  <input type="text" id="loyalty" placeholder="სურვილისამებრ">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>მანქანის ტიპი *</label>
+                <div class="input-wrap">
+                  <span class="input-icon">🚙</span>
+                  <select id="car-type"></select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>რეცხვის ტიპი *</label>
+                <div class="input-wrap">
+                  <span class="input-icon">💧</span>
+                  <select id="wash-type"></select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>ბოქსი</label>
+                <div class="input-wrap">
+                  <span class="input-icon">📍</span>
+                  <select id="box"></select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>გადახდა</label>
+                <div class="input-wrap">
+                  <span class="input-icon">💳</span>
+                  <select id="payment"></select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>თანხა (₾) *</label>
+                <div class="input-wrap cost-input-wrap">
+                  <span class="input-icon">₾</span>
+                  <input type="number" id="cost" placeholder="0" min="0" step="1" required>
+                </div>
+              </div>
+            </div>
+
+            <!-- VIP indicator -->
+            <div class="vip-indicator" id="vip-indicator">
+              ⭐ VIP WASH — მენეჯერი: +10 ₾ &nbsp;|&nbsp; მრეცხავი: 40%
+            </div>
+
+            <!-- Talon badge -->
+            <span class="talon-badge" id="talon-badge">🎫 ტალონი — ანაზღაურება სრულდება</span>
+
+            <div class="form-actions" style="margin-top:10px;">
+              <button type="submit" class="btn btn-primary" id="submit-entry-btn"
+                      style="padding:11px 28px; font-size:14px;">
+                ✓ ჩანაწერის დამატება
+              </button>
+              <button type="reset" class="btn btn-ghost">გასუფთავება</button>
+            </div>
+
+          </form>
+        </div>
+
+        <!-- ── RECENT ENTRIES ─────────────────────────────────── -->
+        <div class="section-label">📋 ბოლო 10 ჩანაწერი</div>
+
+        <div class="table-card">
+          <div class="table-header">
+            <span class="table-title">დღის ჩანაწერები</span>
+            <button class="btn btn-ghost" onclick="loadRecentEntries()" style="font-size:12px;padding:5px 12px;">
+              ↻ განახლება
+            </button>
+          </div>
+
+          <div style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>ნომერი</th>
+                  <th>მანქანა</th>
+                  <th>რეცხვა</th>
+                  <th>თანხა</th>
+                  <th>გადახდა</th>
+                  <th>ბოქსი</th>
+                  <th>დრო</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="entries-tbody">
+                <tr class="empty-row">
+                  <td colspan="8">ჩატვირთვა...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- /content-scroll -->
+    </main>
+
+  </div><!-- /app-body -->
+
+</div><!-- /app -->
+
+<!-- ============================================================
+     MODALS
+     ============================================================ -->
+
+<!-- ── EDIT ENTRY MODAL ──────────────────────────────────────── -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal edit-form">
+    <div class="modal-header">
+      <h2 class="modal-title">✏ ჩანაწერის რედაქტირება</h2>
+      <button class="modal-close" id="close-edit-modal">✕</button>
+    </div>
+
+    <form id="edit-form">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr; margin-bottom:14px;">
+
+        <div class="form-group">
+          <label>მანქანის ნომერი</label>
+          <div class="input-wrap">
+            <span class="input-icon">🚗</span>
+            <input type="text" id="edit-plate" required style="text-transform:uppercase;">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>ლოიალობის კოდი</label>
+          <div class="input-wrap">
+            <span class="input-icon">🎫</span>
+            <input type="text" id="edit-loyalty">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>მანქანის ტიპი</label>
+          <div class="input-wrap">
+            <span class="input-icon">🚙</span>
+            <select id="edit-car-type"></select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>რეცხვის ტიპი</label>
+          <div class="input-wrap">
+            <span class="input-icon">💧</span>
+            <select id="edit-wash-type"></select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>თანხა (₾)</label>
+          <div class="input-wrap">
+            <span class="input-icon">₾</span>
+            <input type="number" id="edit-cost" min="0" step="1" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>გადახდა</label>
+          <div class="input-wrap">
+            <span class="input-icon">💳</span>
+            <select id="edit-payment"></select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>ბოქსი</label>
+          <div class="input-wrap">
+            <span class="input-icon">📍</span>
+            <select id="edit-box"></select>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button type="submit" class="btn btn-primary" id="save-edit-btn">✓ შენახვა</button>
+        <button type="button" class="btn btn-ghost" onclick="closeEditModal()">გაუქმება</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── CONFIRM CLOSE SHIFT ───────────────────────────────────── -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal" style="width:380px; text-align:center;">
+    <div style="font-size:40px;margin-bottom:12px;">🔒</div>
+    <h2 style="margin-bottom:10px;">ცვლის დახურვა</h2>
+    <p style="color:var(--text-muted);margin-bottom:24px;font-size:14px;">
+      ყველა ჩანაწერი ადგება Summary-ს, დაარქივდება და Daily ფურცელი გასუფთავდება.
+      ეს მოქმედება შეუქცევადია.
+    </p>
+    <div style="display:flex;gap:12px;justify-content:center;">
+      <button class="btn btn-danger" id="confirm-yes" style="padding:11px 28px;">
+        დიახ, დახურვა
+      </button>
+      <button class="btn btn-ghost" id="confirm-no" style="padding:11px 24px;">
+        გაუქმება
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SHIFT SUMMARY MODAL ───────────────────────────────────── -->
+<div class="modal-overlay" id="summary-modal">
+  <div class="modal" style="width:580px;">
+
+    <div class="modal-header">
+      <div>
+        <h2 class="modal-title">📊 ცვლის შედეგები</h2>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;" id="sum-date"></div>
+      </div>
+      <button class="modal-close" id="close-summary-modal">✕</button>
+    </div>
+
+    <!-- Bonus alert -->
+    <div class="bonus-alert" id="sum-bonus-alert">
+      🎯 1,600 ₾-ის ზღვარი მიღწეულია! მენეჯერი იღებს +50 ₾ ბონუსს!
+    </div>
+
+    <!-- Revenue cards -->
+    <div class="summary-grid">
+      <div class="summary-card highlight">
+        <div class="sc-label">სულ შემოსავალი</div>
+        <div class="sc-value" id="sum-revenue">—</div>
+      </div>
+      <div class="summary-card">
+        <div class="sc-label">სულ მობანება</div>
+        <div class="sc-value" id="sum-washes">—</div>
+      </div>
+      <div class="summary-card success-card">
+        <div class="sc-label">ქეში</div>
+        <div class="sc-value" id="sum-cash">—</div>
+      </div>
+      <div class="summary-card">
+        <div class="sc-label">ბარათი</div>
+        <div class="sc-value" id="sum-card">—</div>
+      </div>
+      <div class="summary-card">
+        <div class="sc-label">ტალონი</div>
+        <div class="sc-value" id="sum-talon">—</div>
+      </div>
+      <div class="summary-card vip-card">
+        <div class="sc-label">VIP რეცხვები</div>
+        <div class="sc-value" id="sum-vip">—</div>
+      </div>
+    </div>
+
+    <!-- Salary breakdown -->
+    <div style="margin-bottom:16px;">
+      <div class="section-label" style="margin-bottom:10px;">ხელფასები</div>
+      <table class="summary-table">
+        <tr>
+          <td>მრეცხავები სულ</td>
+          <td id="sum-washer">—</td>
+        </tr>
+        <tr>
+          <td>მენეჯერი – ბაზა</td>
+          <td id="sum-mgr-base">—</td>
+        </tr>
+        <tr>
+          <td>მენეჯერი – VIP ბონუსი</td>
+          <td id="sum-mgr-vip">—</td>
+        </tr>
+        <tr>
+          <td>მენეჯერი – დღის ბონუსი</td>
+          <td id="sum-mgr-daily">—</td>
+        </tr>
+        <tr>
+          <td><strong>მენეჯერი სულ</strong></td>
+          <td><strong id="sum-mgr-total">—</strong></td>
+        </tr>
+        <tr class="total-row">
+          <td>სულ ხარჯები</td>
+          <td id="sum-expenses">—</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Remaining -->
+    <div style="margin-bottom:20px;">
+      <div class="section-label" style="margin-bottom:10px;">დარჩენილი</div>
+      <table class="summary-table">
+        <tr>
+          <td>ქეში (ხარჯების შემდეგ)</td>
+          <td id="sum-remain-c">—</td>
+        </tr>
+        <tr>
+          <td>ქეში + ბარათი (ხარჯების შემდეგ)</td>
+          <td id="sum-remain-cc">—</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="font-size:12px;color:var(--text-dim);margin-bottom:20px;">
+      ✅ ჩანაწერები დაარქივდა: <strong style="color:var(--primary);" id="sum-archived">—</strong>
+    </div>
+
+    <button class="btn btn-primary btn-full" id="close-summary-btn"
+            onclick="document.getElementById('summary-modal').classList.remove('open');">
+      ✓ კარგი
+    </button>
+
+  </div>
+</div>
+
+<!-- ── TOAST CONTAINER ───────────────────────────────────────── -->
+<div id="toast-container"></div>
+
+<?!= include('script'); ?>
+</body>
+</html>
