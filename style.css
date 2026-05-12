@@ -124,6 +124,48 @@ select option{background:var(--bg-card);color:var(--text-main)}
 #app{display:none;height:100vh;flex-direction:column;overflow:hidden}
 #app.visible{display:flex}
 
+/* ── START SHIFT SCREEN ── */
+#start-shift-screen{position:fixed;inset:0;display:none;align-items:center;
+  justify-content:center;z-index:999;
+  background:
+    radial-gradient(ellipse at 25% 25%,rgba(0,140,207,.2) 0%,transparent 55%),
+    radial-gradient(ellipse at 75% 75%,rgba(0,180,216,.12) 0%,transparent 50%),
+    var(--bg-deep)}
+#start-shift-screen.visible{display:flex}
+
+.start-shift-card{width:420px;background:var(--glass-bg);border:1px solid var(--border);
+  border-radius:22px;padding:44px 40px 38px;backdrop-filter:blur(24px);
+  -webkit-backdrop-filter:blur(24px);
+  box-shadow:var(--shadow-blue),0 0 0 1px rgba(255,255,255,.04);text-align:center}
+
+.ss-manager{display:flex;align-items:center;gap:14px;
+  background:var(--primary-dim);border:1px solid var(--primary);
+  border-radius:14px;padding:14px 18px;margin-bottom:28px;text-align:left}
+.ss-avatar{width:44px;height:44px;border-radius:12px;
+  background:linear-gradient(135deg,#008CCF,#005A8A);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:800;color:#fff;flex-shrink:0}
+.ss-greeting{font-size:11px;color:var(--text-muted);text-transform:uppercase;
+  letter-spacing:1px;margin-bottom:2px}
+.ss-name{font-size:17px;font-weight:700;color:var(--text-main)}
+
+.ss-datetime{margin-bottom:30px}
+.ss-day-name{font-size:13px;font-weight:600;letter-spacing:2px;
+  text-transform:uppercase;color:var(--primary);margin-bottom:4px}
+.ss-date-str{font-size:22px;font-weight:700;color:var(--text-main);margin-bottom:6px}
+.ss-clock{font-size:46px;font-weight:800;color:var(--text-main);
+  font-variant-numeric:tabular-nums;letter-spacing:2px;
+  text-shadow:0 0 32px rgba(0,140,207,.4)}
+.ss-clock span{color:var(--primary)}
+
+.ss-start-btn{width:100%;padding:15px;font-size:16px;letter-spacing:1px;
+  background:linear-gradient(135deg,#008CCF,#005A8A);color:#fff;border:none;
+  border-radius:var(--radius-sm);font-family:var(--font);font-weight:700;
+  cursor:pointer;transition:all var(--tr);
+  box-shadow:0 6px 24px rgba(0,140,207,.4)}
+.ss-start-btn:hover{background:linear-gradient(135deg,#00A0E8,#008CCF);
+  box-shadow:0 8px 32px rgba(0,140,207,.55);transform:translateY(-2px)}
+
 /* ── HEADER ── */
 .app-header{flex:0 0 auto;background:var(--bg-card);border-bottom:1px solid var(--border-light);
   padding:0 18px;display:flex;align-items:center;gap:14px;height:56px;
@@ -140,6 +182,16 @@ select option{background:var(--bg-card);color:var(--text-main)}
 .header-logo-text{font-size:14px;font-weight:700;letter-spacing:1.5px}
 .header-logo-text span{color:var(--primary)}
 .header-subtitle{font-size:9px;color:var(--text-dim);letter-spacing:1.5px;text-transform:uppercase}
+
+/* ── LIVE CLOCK IN HEADER ── */
+.header-clock{display:flex;flex-direction:column;align-items:flex-start;
+  padding:4px 14px;border-left:1px solid var(--border-light);flex-shrink:0}
+.clock-day-date{font-size:9px;font-weight:600;letter-spacing:1px;
+  text-transform:uppercase;color:var(--text-muted);white-space:nowrap}
+.clock-time-display{font-size:16px;font-weight:800;color:var(--primary);
+  font-variant-numeric:tabular-nums;letter-spacing:1px;line-height:1.1}
+.clock-time-display .clock-sep{animation:blink 1s step-end infinite;color:var(--text-muted)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 
 /* ── STATS STRIP ── */
 .header-stats{flex:1;display:flex;align-items:center;gap:5px;overflow-x:auto;padding:0 8px}

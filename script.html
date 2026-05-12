@@ -21,8 +21,21 @@ const PRICES = {
   'ჯიპი XL' : { 'სტანდარტი':50,'VIP':150,'შიგნიდან':25,'გარედან':25,'ორივე':50,'სხვა':0 }
 };
 
+// ── GEORGIAN LOCALE ───────────────────────────────────────────
+const GEO = {
+  days  : ['კვირა','ორშაბათი','სამშაბათი','ოთხშაბათი','ხუთშაბათი','პარასკევი','შაბათი'],
+  months: ['იანვარი','თებერვალი','მარტი','აპრილი','მაისი','ივნისი',
+           'ივლისი','აგვისტო','სექტემბერი','ოქტომბერი','ნოემბერი','დეკემბერი']
+};
+
+function geoDateStr(d) {
+  return d.getDate() + ' ' + GEO.months[d.getMonth()] + ', ' + d.getFullYear();
+}
+function pad2(n) { return String(n).padStart(2,'0'); }
+
 // ── BOOT ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  startGlobalClock();
   bindLoginForm();
   bindEntryForm();
   bindInventoryForm();
@@ -30,7 +43,31 @@ document.addEventListener('DOMContentLoaded', () => {
   bindEditModal();
   bindSidebarToggle();
   bindLogout();
+  bindStartShift();
 });
+
+// ── GLOBAL CLOCK (runs always, even on login screen) ──────────
+function startGlobalClock() {
+  function tick() {
+    const now = new Date();
+    const hh  = pad2(now.getHours());
+    const mm  = pad2(now.getMinutes());
+    const ss  = pad2(now.getSeconds());
+
+    // Header clock (main app)
+    setEl('hdr-hh', hh); setEl('hdr-mm', mm); setEl('hdr-ss', ss);
+    setEl('header-date', GEO.days[now.getDay()] + ', ' + geoDateStr(now));
+
+    // Start-shift clock
+    setEl('ss-hh', hh); setEl('ss-mm', mm); setEl('ss-ss', ss);
+    setEl('ss-day-name', GEO.days[now.getDay()]);
+    setEl('ss-date-str', geoDateStr(now));
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+
+function setEl(id, val) { const e = document.getElementById(id); if (e) e.textContent = val; }
 
 // ── LOGIN ─────────────────────────────────────────────────────
 function bindLoginForm() {
@@ -72,33 +109,64 @@ function showLoginError(msg) {
 
 function onLoginSuccess(name) {
   STATE.managerName = name;
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app').classList.add('visible');
-  document.getElementById('manager-name-display').textContent = name;
 
   // Clear login form for security
   document.getElementById('pin').value = '';
 
-  // Get Web App URL for live link
-  google.script.run
-    .withSuccessHandler(url => {
-      STATE.webAppUrl = url;
-      const liveBtn = document.getElementById('live-link-btn');
-      if (liveBtn && url) liveBtn.href = url + '?page=live';
-    })
-    .withFailureHandler(() => {})
-    .getWebAppUrl();
+  // Show START SHIFT screen (not the app yet)
+  document.getElementById('login-screen').style.display = 'none';
+  const ssScreen = document.getElementById('start-shift-screen');
+  ssScreen.classList.add('visible');
 
-  google.script.run
-    .withSuccessHandler(lists => {
-      STATE.lists = lists;
-      populateDropdowns();
-      loadAllEntries();
-      refreshStats();
-      STATE.statsTimer = setInterval(refreshStats, 30000);
-    })
-    .withFailureHandler(err => toast('სიების შეცდომა: ' + err.message, 'error'))
-    .getListsData();
+  // Populate start-shift card
+  setEl('ss-manager-name', name);
+  const avatarEl = document.getElementById('ss-avatar');
+  if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase();
+}
+
+function bindStartShift() {
+  const btn = document.getElementById('start-shift-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    setLoading(btn, true);
+
+    google.script.run
+      .withSuccessHandler(res => {
+        setLoading(btn, false);
+        // Hide start-shift screen, show main app
+        document.getElementById('start-shift-screen').classList.remove('visible');
+        document.getElementById('app').classList.add('visible');
+        document.getElementById('manager-name-display').textContent = STATE.managerName;
+
+        // Load lists, entries, stats
+        google.script.run
+          .withSuccessHandler(url => {
+            STATE.webAppUrl = url;
+            const liveBtn = document.getElementById('live-link-btn');
+            if (liveBtn && url) liveBtn.href = url + '?page=live';
+          })
+          .withFailureHandler(() => {})
+          .getWebAppUrl();
+
+        google.script.run
+          .withSuccessHandler(lists => {
+            STATE.lists = lists;
+            populateDropdowns();
+            loadAllEntries();
+            refreshStats();
+            STATE.statsTimer = setInterval(refreshStats, 30000);
+          })
+          .withFailureHandler(err => toast('სიების შეცდომა: ' + err.message, 'error'))
+          .getListsData();
+
+        toast('✓ ცვლა დაიწყო — ' + new Date().toLocaleTimeString('ka-GE',{hour:'2-digit',minute:'2-digit'}), 'success');
+      })
+      .withFailureHandler(err => {
+        setLoading(btn, false);
+        toast('შეცდომა: ' + err.message, 'error');
+      })
+      .setShiftStart(STATE.managerName);
+  });
 }
 
 // ── LOGOUT ───────────────────────────────────────────────────
@@ -121,8 +189,9 @@ function logout() {
   STATE.collectingRow  = null;
   STATE.collectPayment = null;
 
-  // Show login, hide app
+  // Show login, hide app and start-shift screen
   document.getElementById('app').classList.remove('visible');
+  document.getElementById('start-shift-screen').classList.remove('visible');
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('manager-name').value = '';
   document.getElementById('pin').value = '';

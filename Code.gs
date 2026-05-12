@@ -6,7 +6,7 @@
 // ── USER CONFIG ─────────────────────────────────────────────
 const SPREADSHEET_ID   = '1ufhpPY_J366QJ1qf5wEjpvlbHVORIZX59EBwbn3NZsc';
 const MANAGER_PIN      = '2329';
-const ROOT_FOLDER_NAME = 'ESG CarWash';
+const ROOT_FOLDER_NAME = 'ESGMall App';
 
 // ── SALARY RULES ────────────────────────────────────────────
 const MANAGER_BASE          = 175;
@@ -78,6 +78,16 @@ function _autoSetup() {
 // ── Expose the deployed Web App URL so the UI can build the live link ──
 function getWebAppUrl() {
   return ScriptApp.getService().getUrl();
+}
+
+// ── Called when manager clicks "Start Shift" on the confirmation screen ──
+function setShiftStart(managerName) {
+  const now = new Date();
+  PropertiesService.getScriptProperties().setProperties({
+    currentManager : managerName,
+    shiftStart     : now.toISOString()
+  });
+  return { success: true, startTime: now.toISOString() };
 }
 
 // ── Run this ONCE from the Apps Script editor to grant Drive access ──
