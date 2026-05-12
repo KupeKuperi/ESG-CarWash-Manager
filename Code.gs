@@ -48,6 +48,39 @@ const PRICES = {
 const BOXES = ['Box 1','Box 2','Box 3','Box 4'];
 
 // ============================================================
+//  JSON HELPER
+// ============================================================
+function jsonOut_(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ============================================================
+//  EXTERNAL API — called from ESGQR loyalty manager via HTTP
+// ============================================================
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    if (data.action === 'addLoyaltyEntry') {
+      var result = addEntry({
+        plateNumber : data.customerName || data.userID || 'LOYALTY',
+        loyaltyCode : data.userID  || '',
+        phone       : data.phone   || '',
+        carType     : 'სედანი',
+        washType    : data.erpWashType || 'სტანდარტი',
+        cost        : 0,
+        box         : 'Box 1'
+      });
+      return jsonOut_(result);
+    }
+    return jsonOut_({ success:false, message:'Unknown action: ' + data.action });
+  } catch(err) {
+    return jsonOut_({ success:false, message:err.message });
+  }
+}
+
+// ============================================================
 //  WEB APP ENTRY POINT
 // ============================================================
 function doGet(e) {
