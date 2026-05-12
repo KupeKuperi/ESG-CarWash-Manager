@@ -153,7 +153,7 @@ function bindStartShift() {
             populateDropdowns();
             loadAllEntries();
             refreshStats();
-            STATE.statsTimer = setInterval(refreshStats, 30000);
+            STATE.statsTimer = setInterval(() => { refreshStats(); loadAllEntries(); }, 15000);
           })
           .withFailureHandler(err => toast('სიების შეცდომა: ' + err.message, 'error'))
           .getListsData();
