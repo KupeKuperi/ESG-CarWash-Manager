@@ -1,6 +1,6 @@
 ﻿<script>
 // ============================================================
-//  ESG Car Wash Manager Terminal – script.js  v3
+//  ESG Car Wash Manager Terminal – script.js  v4
 // ============================================================
 'use strict';
 
@@ -29,12 +29,12 @@ document.addEventListener('DOMContentLoaded', () => {
   bindShiftButton();
   bindEditModal();
   bindSidebarToggle();
+  bindLogout();
 });
 
 // ── LOGIN ─────────────────────────────────────────────────────
 function bindLoginForm() {
   const form   = document.getElementById('login-form');
-  const errEl  = document.getElementById('login-error');
   const btn    = document.getElementById('login-btn');
   const pinInp = document.getElementById('pin');
 
@@ -76,6 +76,9 @@ function onLoginSuccess(name) {
   document.getElementById('app').classList.add('visible');
   document.getElementById('manager-name-display').textContent = name;
 
+  // Clear login form for security
+  document.getElementById('pin').value = '';
+
   // Get Web App URL for live link
   google.script.run
     .withSuccessHandler(url => {
@@ -90,7 +93,7 @@ function onLoginSuccess(name) {
     .withSuccessHandler(lists => {
       STATE.lists = lists;
       populateDropdowns();
-      loadRecentEntries();
+      loadAllEntries();
       refreshStats();
       STATE.statsTimer = setInterval(refreshStats, 30000);
     })
@@ -98,17 +101,48 @@ function onLoginSuccess(name) {
     .getListsData();
 }
 
+// ── LOGOUT ───────────────────────────────────────────────────
+function bindLogout() {
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    if (!confirm('გამოსვლა? ცვლის მონაცემები შენახულია — ხელახლა შესვლისას გამოჩნდება.')) return;
+    logout();
+  });
+}
+
+function logout() {
+  // Stop the refresh timer
+  if (STATE.statsTimer) { clearInterval(STATE.statsTimer); STATE.statsTimer = null; }
+
+  // Reset state (but NOT the Sheets data — that stays safe)
+  STATE.managerName    = '';
+  STATE.lists          = null;
+  STATE.sessionSales   = [];
+  STATE.editingRow     = null;
+  STATE.collectingRow  = null;
+  STATE.collectPayment = null;
+
+  // Show login, hide app
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('manager-name').value = '';
+  document.getElementById('pin').value = '';
+
+  // Close any open modals
+  ['edit-modal','collect-modal','confirm-modal','summary-modal'].forEach(id => {
+    document.getElementById(id).classList.remove('open');
+  });
+}
+
 // ── DROPDOWNS ────────────────────────────────────────────────
 function populateDropdowns() {
-  const { carTypes, washTypes, boxes, payments } = STATE.lists;
+  const { carTypes, washTypes, boxes } = STATE.lists;
   fillSelect('car-type',      carTypes);
   fillSelect('wash-type',     washTypes);
   fillSelect('box',           boxes);
-  fillSelect('payment',       payments);
   fillSelect('edit-car-type', carTypes);
   fillSelect('edit-wash-type',washTypes);
   fillSelect('edit-box',      boxes);
-  fillSelect('edit-payment',  payments);
+  fillSelect('edit-payment',  ['Cash','Card','Talon']);
 }
 
 function fillSelect(id, items) {
@@ -117,32 +151,10 @@ function fillSelect(id, items) {
   sel.innerHTML = items.map(v => `<option value="${v}">${v}</option>`).join('');
 }
 
-// ── PAY STATUS TOGGLE ─────────────────────────────────────────
-function setPayStatus(status) {
-  document.getElementById('pay-status').value = status;
-  const btnNow = document.getElementById('btn-pay-now');
-  const btnTab = document.getElementById('btn-pay-tab');
-  const payGroup    = document.getElementById('payment-group');
-  const pendingBadge= document.getElementById('pending-badge');
-
-  if (status === 'Paid') {
-    btnNow.classList.add('active-pay');    btnNow.classList.remove('active-tab');
-    btnTab.classList.remove('active-pay'); btnTab.classList.remove('active-tab');
-    payGroup.style.display    = '';
-    pendingBadge.classList.remove('show');
-  } else {
-    btnTab.classList.add('active-tab');    btnTab.classList.remove('active-pay');
-    btnNow.classList.remove('active-pay'); btnNow.classList.remove('active-tab');
-    payGroup.style.display    = 'none';
-    pendingBadge.classList.add('show');
-  }
-}
-
 // ── ENTRY FORM ────────────────────────────────────────────────
 function bindEntryForm() {
   const carSel   = document.getElementById('car-type');
   const washSel  = document.getElementById('wash-type');
-  const paySel   = document.getElementById('payment');
   const costInp  = document.getElementById('cost');
   const form     = document.getElementById('entry-form');
   const submitBtn= document.getElementById('submit-entry-btn');
@@ -150,56 +162,45 @@ function bindEntryForm() {
   function autoPrice() {
     const p = (PRICES[carSel.value] || {})[washSel.value];
     if (p !== undefined) costInp.value = p;
-    updateVIPIndicator();
-  }
-  carSel.addEventListener('change', autoPrice);
-  washSel.addEventListener('change', autoPrice);
-  paySel.addEventListener('change', () => {
-    const t = document.getElementById('talon-badge');
-    if (paySel.value === 'Talon') t.classList.add('show');
-    else                          t.classList.remove('show');
-  });
-
-  function updateVIPIndicator() {
     const el = document.getElementById('vip-indicator');
     if (washSel.value === 'VIP') el.classList.add('show');
     else                          el.classList.remove('show');
   }
 
+  carSel.addEventListener('change', autoPrice);
+  washSel.addEventListener('change', autoPrice);
+
   form.addEventListener('submit', e => {
     e.preventDefault();
-    const payStatus = document.getElementById('pay-status').value;
     const data = {
       plateNumber : document.getElementById('plate').value.trim(),
       loyaltyCode : document.getElementById('loyalty').value.trim(),
+      phone       : document.getElementById('phone').value.trim(),
       carType     : carSel.value,
       washType    : washSel.value,
       cost        : parseFloat(costInp.value) || 0,
-      paymentType : paySel.value,
-      box         : document.getElementById('box').value,
-      status      : payStatus
+      box         : document.getElementById('box').value
+      // paymentType and status handled server-side (always Pending)
     };
+
     if (!data.plateNumber) { toast('მანქანის ნომერი სავალდებულოა', 'warning'); return; }
+    if (data.cost <= 0)    { toast('თანხა სავალდებულოა', 'warning'); return; }
 
     setLoading(submitBtn, true);
     google.script.run
       .withSuccessHandler(res => {
         setLoading(submitBtn, false);
         if (res.success) {
-          const label = data.status === 'Pending' ? '⏳ ტაბი დამატებულია' : '✓ ჩანაწერი დამატებულია';
-          toast(label, 'success');
+          toast('⏳ ' + data.plateNumber + ' — ტაბზე დამატებულია', 'success');
           form.reset();
-          setPayStatus('Paid');
           if (STATE.lists) {
             carSel.value  = STATE.lists.carTypes[0];
             washSel.value = STATE.lists.washTypes[0];
-            document.getElementById('box').value     = STATE.lists.boxes[0];
-            paySel.value  = STATE.lists.payments[0];
+            document.getElementById('box').value = STATE.lists.boxes[0];
             autoPrice();
           }
           document.getElementById('vip-indicator').classList.remove('show');
-          document.getElementById('talon-badge').classList.remove('show');
-          loadRecentEntries();
+          loadAllEntries();
           refreshStats();
         } else { toast('შეცდომა: ' + res.message, 'error'); }
       })
@@ -209,6 +210,18 @@ function bindEntryForm() {
       })
       .addEntry(data);
   });
+}
+
+// ── NOTES PARSER ─────────────────────────────────────────────
+// Notes stored as "L:loyalty | T:phone" — parse back for display
+function parseNotes(raw) {
+  if (!raw) return { loyalty:'', phone:'', display:'' };
+  const loyalty = (raw.match(/L:([^|]+)/) || [])[1] || '';
+  const phone   = (raw.match(/T:([^|]+)/) || [])[1] || '';
+  const parts   = [];
+  if (loyalty.trim()) parts.push('🎫 ' + loyalty.trim());
+  if (phone.trim())   parts.push('📞 ' + phone.trim());
+  return { loyalty: loyalty.trim(), phone: phone.trim(), display: parts.join(' ') };
 }
 
 // ── STATS ─────────────────────────────────────────────────────
@@ -228,11 +241,10 @@ function renderStats(s) {
   setChip('stat-pending', s.pendingCount + ' / ' + fmt(s.pendingValue));
   setChip('stat-revenue', fmt(s.totalRevenue));
 
-  // Box earnings chips
   const boxes = ['Box 1','Box 2','Box 3','Box 4'];
   boxes.forEach((b, i) => {
-    const n   = i + 1;
-    const bd  = (s.boxData || {})[b] || { salary:0, washes:0 };
+    const n  = i + 1;
+    const bd = (s.boxData || {})[b] || { salary:0, washes:0 };
     setChip('box-earn-' + n, fmt(bd.salary));
     setChip('box-wash-' + n, '(' + bd.washes + ')');
   });
@@ -247,59 +259,74 @@ function setChip(id, val) {
   if (el) el.textContent = val;
 }
 
-// ── RECENT ENTRIES TABLE ──────────────────────────────────────
-function loadRecentEntries() {
+// ── ALL ENTRIES TABLE ─────────────────────────────────────────
+function loadAllEntries() {
   google.script.run
     .withSuccessHandler(rows => renderEntriesTable(rows))
     .withFailureHandler(() => toast('ჩანაწერების ჩატვირთვა ვერ მოხერხდა', 'error'))
-    .getRecentEntries(10);
+    .getAllEntries();
 }
+
+// keep old name for any stale references
+function loadRecentEntries() { loadAllEntries(); }
 
 function renderEntriesTable(rows) {
   const tbody = document.getElementById('entries-tbody');
+
+  // Update counters in table header
+  const totalEl   = document.getElementById('entry-count');
+  const pendingEl = document.getElementById('entry-pending-count');
+  if (totalEl)   totalEl.textContent   = rows ? rows.length : 0;
+  if (pendingEl) pendingEl.textContent = rows ? rows.filter(r => r.status === 'Pending').length : 0;
+
   if (!rows || !rows.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="9">დღეს ჩანაწერები არ არის</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="10">დღეს ჩანაწერები არ არის</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = rows.reverse().map(r => {
-    const isPending  = r.status === 'Pending';
-    const washClass  = r.washType === 'VIP' ? 'vip' : 'standard';
-    const payClass   = isPending ? 'pending' : r.paymentType.toLowerCase();
-    const rowClass   = isPending ? 'pending-row' : '';
-    const rowData    = JSON.stringify(r).replace(/"/g,"'");
+  // Newest first
+  tbody.innerHTML = rows.slice().reverse().map(r => {
+    const isPending = r.status === 'Pending';
+    const washClass = r.washType === 'VIP' ? 'vip' : 'standard';
+    const payClass  = isPending ? 'pending' : r.paymentType.toLowerCase();
+    const rowClass  = isPending ? 'pending-row' : '';
+    const note      = parseNotes(r.notes);
+    const rowJson   = JSON.stringify(r).replace(/"/g, "'");
 
-    const statusDot  = `<span class="status-dot ${isPending?'pending':'paid'}"></span>`;
+    const statusDot = `<span class="status-dot ${isPending ? 'pending' : 'paid'}"></span>`;
+    const noteCell  = note.display
+      ? `<span style="font-size:11px;color:var(--text-muted)">${esc(note.display)}</span>`
+      : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+
     const collectBtn = isPending
-      ? `<button class="btn btn-collect" onclick="openCollectModal(${r.rowIndex},'${esc(r.plateNumber)}',${r.cost})">💰 Collect</button>`
+      ? `<button class="btn btn-collect" onclick="openCollectModal(${r.rowIndex},'${esc(r.plateNumber)}',${r.cost})">💰</button>`
       : '';
-    const editBtn    = `<button class="btn btn-ghost btn-icon" title="Edit" onclick="openEditModal(${r.rowIndex},${rowData})">✏</button>`;
+    const editBtn = `<button class="btn btn-ghost btn-icon" title="Edit"
+                       onclick="openEditModal(${r.rowIndex},${rowJson})">✏</button>`;
 
     return `<tr class="${rowClass}">
       <td>${statusDot}</td>
       <td class="plate-cell">${esc(r.plateNumber)}</td>
-      <td>${esc(r.carType)}</td>
+      <td style="font-size:12px">${esc(r.carType)}</td>
       <td><span class="wash-badge ${washClass}">${esc(r.washType)}</span></td>
       <td style="font-weight:700">${r.cost} ₾</td>
       <td><span class="pay-chip ${payClass}">${esc(isPending ? 'ტაბი' : r.paymentType)}</span></td>
-      <td>${esc(r.box)}</td>
-      <td style="color:var(--text-muted)">${esc(r.timestamp)}</td>
-      <td style="display:flex;gap:5px;align-items:center">${collectBtn}${editBtn}</td>
+      <td style="font-size:12px">${esc(r.box)}</td>
+      <td>${noteCell}</td>
+      <td style="color:var(--text-muted);font-size:11px">${esc(r.timestamp)}</td>
+      <td style="display:flex;gap:4px;align-items:center">${collectBtn}${editBtn}</td>
     </tr>`;
   }).join('');
 }
 
 // ── COLLECT PAYMENT ───────────────────────────────────────────
 function openCollectModal(rowIndex, plate, cost) {
-  STATE.collectingRow = rowIndex;
+  STATE.collectingRow  = rowIndex;
   STATE.collectPayment = null;
   document.querySelectorAll('.payment-option').forEach(el => el.classList.remove('selected'));
   document.getElementById('confirm-collect-btn').disabled = true;
-
-  // Show plate + amount in modal title area
   const titleEl = document.querySelector('#collect-modal .modal-title');
   if (titleEl) titleEl.textContent = `💰 ${plate} – ${cost} ₾`;
-
   document.getElementById('collect-modal').classList.add('open');
 }
 
@@ -311,10 +338,12 @@ function closeCollectModal() {
 
 function selectCollectPayment(type) {
   STATE.collectPayment = type;
-  document.querySelectorAll('.payment-option').forEach(el => el.classList.remove('selected'));
   document.querySelectorAll('.payment-option').forEach(el => {
-    if (el.textContent.includes(type === 'Cash' ? 'Cash' : type === 'Card' ? 'ბარათი' : 'ტალონი'))
-      el.classList.add('selected');
+    const label = el.querySelector('.po-label').textContent;
+    const match = (type==='Cash' && label==='Cash') ||
+                  (type==='Card' && label==='ბარათი') ||
+                  (type==='Talon'&& label==='ტალონი');
+    el.classList.toggle('selected', match);
   });
   document.getElementById('confirm-collect-btn').disabled = false;
 }
@@ -323,20 +352,19 @@ function confirmCollect() {
   if (STATE.collectingRow === null || !STATE.collectPayment) return;
   const btn = document.getElementById('confirm-collect-btn');
   setLoading(btn, true);
-
   google.script.run
     .withSuccessHandler(res => {
       setLoading(btn, false);
       if (res.success) {
-        toast(`✓ გადახდა მიღებულია – ${STATE.collectPayment}`, 'success');
+        toast(`✓ ${STATE.collectPayment} — გადახდა მიღებულია`, 'success');
         closeCollectModal();
-        loadRecentEntries();
+        loadAllEntries();
         refreshStats();
       } else { toast('შეცდომა: ' + res.message, 'error'); }
     })
     .withFailureHandler(err => {
       setLoading(btn, false);
-      toast('კავშირის შეცდომა: ' + err.message, 'error');
+      toast('შეცდომა: ' + err.message, 'error');
     })
     .markAsPaid(STATE.collectingRow, STATE.collectPayment);
 }
@@ -392,13 +420,17 @@ function bindSidebarToggle() {
 // ── EDIT MODAL ────────────────────────────────────────────────
 function openEditModal(rowIndex, row) {
   STATE.editingRow = rowIndex;
+  const note = parseNotes(row.notes);
   document.getElementById('edit-plate').value    = row.plateNumber;
-  document.getElementById('edit-loyalty').value  = row.notes;
   document.getElementById('edit-car-type').value = row.carType;
   document.getElementById('edit-wash-type').value= row.washType;
   document.getElementById('edit-cost').value     = row.cost;
-  document.getElementById('edit-payment').value  = row.paymentType === 'Pending' ? 'Cash' : row.paymentType;
   document.getElementById('edit-box').value      = row.box;
+  document.getElementById('edit-loyalty').value  = note.loyalty;
+  document.getElementById('edit-phone').value    = note.phone;
+  // Show payment selector only for already-paid entries
+  const payEl = document.getElementById('edit-payment');
+  if (payEl) payEl.value = row.paymentType === 'Pending' ? 'Cash' : row.paymentType;
   document.getElementById('edit-modal').classList.add('open');
 }
 
@@ -409,23 +441,28 @@ function bindEditModal() {
   });
   document.getElementById('edit-form').addEventListener('submit', e => {
     e.preventDefault();
-    const btn  = document.getElementById('save-edit-btn');
+    const btn = document.getElementById('save-edit-btn');
     const data = {
       plateNumber : document.getElementById('edit-plate').value.trim(),
       loyaltyCode : document.getElementById('edit-loyalty').value.trim(),
+      phone       : document.getElementById('edit-phone').value.trim(),
       carType     : document.getElementById('edit-car-type').value,
       washType    : document.getElementById('edit-wash-type').value,
       cost        : parseFloat(document.getElementById('edit-cost').value) || 0,
-      paymentType : document.getElementById('edit-payment').value,
+      paymentType : (document.getElementById('edit-payment') || {}).value || 'Cash',
       box         : document.getElementById('edit-box').value,
-      status      : 'Paid'
+      status      : 'Pending'  // editing keeps it pending; collect via 💰 button
     };
     setLoading(btn, true);
     google.script.run
       .withSuccessHandler(res => {
         setLoading(btn, false);
-        if (res.success) { toast('✓ ჩანაწერი განახლდა', 'success'); closeEditModal(); loadRecentEntries(); refreshStats(); }
-        else { toast('შეცდომა: ' + res.message, 'error'); }
+        if (res.success) {
+          toast('✓ ჩანაწერი განახლდა', 'success');
+          closeEditModal();
+          loadAllEntries();
+          refreshStats();
+        } else { toast('შეცდომა: ' + res.message, 'error'); }
       })
       .withFailureHandler(err => { setLoading(btn, false); toast('შეცდომა: ' + err.message, 'error'); })
       .updateEntry(STATE.editingRow, data);
@@ -449,7 +486,6 @@ function bindShiftButton() {
   document.getElementById('confirm-no').addEventListener('click', () => {
     document.getElementById('confirm-modal').classList.remove('open');
   });
-
   ['close-summary-modal','close-summary-btn'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('click', closeSummaryModal);
@@ -463,7 +499,6 @@ function executeCloseShift() {
     .withSuccessHandler(res => {
       setLoading(btn, false);
       if (res.success) {
-        toast('✓ ცვლა დახურულია – ' + res.summary.archivePath, 'success');
         renderShiftSummary(res.summary);
         document.getElementById('summary-modal').classList.add('open');
       } else { toast('შეცდომა: ' + res.message, 'error'); }
@@ -490,30 +525,27 @@ function renderShiftSummary(s) {
   document.getElementById('sum-mgr-total').textContent= fmt(s.managerTotal);
   document.getElementById('sum-expenses').textContent = fmt(s.totalExpenses);
   document.getElementById('sum-remain-cc').textContent= fmt(s.remainCashCard);
-  document.getElementById('sum-archive-path').textContent = s.archivePath;
+  document.getElementById('sum-archive-path').textContent = s.archivePath || '';
   const archiveLink = document.getElementById('sum-archive-url');
   if (archiveLink) archiveLink.href = s.archiveUrl || '#';
-
   if (s.bonusReached) document.getElementById('sum-bonus-alert').classList.add('show');
   else                document.getElementById('sum-bonus-alert').classList.remove('show');
-
-  // Box breakdown
   const boxDiv = document.getElementById('sum-box-breakdown');
   if (boxDiv && s.boxSalaries) {
     boxDiv.innerHTML = ['Box 1','Box 2','Box 3','Box 4'].map(b => `
       <div class="box-item">
         <div class="bi-label">${b}</div>
-        <div class="bi-value">${fmt(s.boxSalaries[b] || 0)}</div>
-        <div class="bi-sub">${s.boxWashes[b] || 0} რეცხ.</div>
+        <div class="bi-value">${fmt(s.boxSalaries[b]||0)}</div>
+        <div class="bi-sub">${s.boxWashes[b]||0} რეცხ.</div>
       </div>`).join('');
   }
 }
 
 function closeSummaryModal() {
   document.getElementById('summary-modal').classList.remove('open');
-  renderStats({ totalWashes:0, pendingCount:0, pendingValue:0, cashTotal:0, cardTotal:0,
-                talonCount:0, talonValue:0, vipCount:0, totalRevenue:0,
-                bonusReached:false, boxData:{} });
+  renderStats({ totalWashes:0, pendingCount:0, pendingValue:0, cashTotal:0,
+                cardTotal:0, talonCount:0, talonValue:0, vipCount:0,
+                totalRevenue:0, bonusReached:false, boxData:{} });
   renderEntriesTable([]);
   STATE.sessionSales = [];
   renderSalesLog();

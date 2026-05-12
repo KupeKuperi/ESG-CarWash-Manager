@@ -127,6 +127,7 @@
         <span id="manager-name-display">—</span>
       </div>
       <button class="btn btn-ghost btn-icon" id="sidebar-toggle-btn" title="ინვენტარი">📦</button>
+      <button class="btn btn-ghost" id="logout-btn" title="გამოსვლა" style="font-size:12px">↩ გამოსვლა</button>
       <button class="btn btn-danger" id="close-shift-btn">🔒 ცვლა</button>
     </div>
   </header>
@@ -184,8 +185,8 @@
         <div class="section-label">⚡ ახალი ჩანაწერი</div>
         <div class="form-card">
           <form id="entry-form" autocomplete="off">
-
             <div class="form-grid">
+
               <div class="form-group">
                 <label>ნომერი *</label>
                 <div class="input-wrap">
@@ -194,13 +195,7 @@
                          style="text-transform:uppercase" required>
                 </div>
               </div>
-              <div class="form-group">
-                <label>ლოიალობა</label>
-                <div class="input-wrap">
-                  <span class="input-icon">🎫</span>
-                  <input type="text" id="loyalty" placeholder="სურვილისამებრ">
-                </div>
-              </div>
+
               <div class="form-group">
                 <label>მანქანა *</label>
                 <div class="input-wrap">
@@ -208,6 +203,7 @@
                   <select id="car-type"></select>
                 </div>
               </div>
+
               <div class="form-group">
                 <label>რეცხვა *</label>
                 <div class="input-wrap">
@@ -215,6 +211,7 @@
                   <select id="wash-type"></select>
                 </div>
               </div>
+
               <div class="form-group">
                 <label>ბოქსი</label>
                 <div class="input-wrap">
@@ -222,13 +219,7 @@
                   <select id="box"></select>
                 </div>
               </div>
-              <div class="form-group" id="payment-group">
-                <label>გადახდა</label>
-                <div class="input-wrap">
-                  <span class="input-icon">💳</span>
-                  <select id="payment"></select>
-                </div>
-              </div>
+
               <div class="form-group">
                 <label>თანხა (₾) *</label>
                 <div class="input-wrap">
@@ -236,52 +227,66 @@
                   <input type="number" id="cost" placeholder="0" min="0" step="1" required>
                 </div>
               </div>
-            </div>
 
-            <!-- Pay Now / Add Tab toggle -->
-            <label style="margin-bottom:6px">გადახდის სტატუსი</label>
-            <div class="pay-toggle">
-              <button type="button" class="pay-toggle-btn active-pay" id="btn-pay-now"
-                      onclick="setPayStatus('Paid')">✓ ახლა გადაიხდება</button>
-              <button type="button" class="pay-toggle-btn" id="btn-pay-tab"
-                      onclick="setPayStatus('Pending')">⏳ მოგვიანებით (ტაბი)</button>
+              <div class="form-group">
+                <label>ლოიალობის კოდი</label>
+                <div class="input-wrap">
+                  <span class="input-icon">🎫</span>
+                  <input type="text" id="loyalty" placeholder="სურვილისამებრ">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>ტელეფონი (სურვილისამებრ)</label>
+                <div class="input-wrap">
+                  <span class="input-icon">📞</span>
+                  <input type="text" id="phone" placeholder="+995 5XX XXX XXX">
+                </div>
+              </div>
+
             </div>
-            <input type="hidden" id="pay-status" value="Paid">
 
             <div class="vip-indicator" id="vip-indicator">
               ⭐ VIP — მენეჯერი: +10 ₾ &nbsp;|&nbsp; მრეცხავი: 40%
             </div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-              <span class="talon-badge"   id="talon-badge">🎫 ტალონი – ანაზღაურება სრულდება</span>
-              <span class="pending-badge" id="pending-badge">⏳ ტაბი – გადახდა მოგვიანებით</span>
+
+            <div style="display:flex;align-items:center;gap:10px;
+                        padding:8px 12px;background:var(--pending-dim);
+                        border:1px solid var(--pending);border-radius:var(--radius-sm);
+                        margin-bottom:12px;font-size:12px;color:var(--pending)">
+              ⏳ ყველა ჩანაწერი ავტომატურად <strong style="margin:0 4px">ტაბზეა</strong> — გადახდა 💰 ღილაკით
             </div>
 
             <div class="form-actions">
               <button type="submit" class="btn btn-primary" id="submit-entry-btn"
-                      style="padding:11px 26px;font-size:14px">✓ ჩანაწერის დამატება</button>
+                      style="padding:11px 26px;font-size:14px">+ მანქანის დამატება</button>
               <button type="reset" class="btn btn-ghost">გასუფთავება</button>
             </div>
           </form>
         </div>
 
-        <!-- RECENT ENTRIES -->
-        <div class="section-label">📋 ბოლო 10 ჩანაწერი</div>
+        <!-- ALL ENTRIES -->
+        <div class="section-label">📋 დღის ყველა ჩანაწერი</div>
         <div class="table-card">
           <div class="table-header">
-            <span class="table-title">დღის ჩანაწერები</span>
-            <button class="btn btn-ghost" onclick="loadRecentEntries()"
+            <span class="table-title">
+              სულ: <span id="entry-count" style="color:var(--primary)">0</span> მანქანა
+              &nbsp;|&nbsp;
+              გადაუხდელი: <span id="entry-pending-count" style="color:var(--pending)">0</span>
+            </span>
+            <button class="btn btn-ghost" onclick="loadAllEntries()"
                     style="font-size:11px;padding:4px 10px">↻ განახლება</button>
           </div>
-          <div style="overflow-x:auto">
+          <div style="overflow-x:auto;max-height:calc(100vh - 440px);overflow-y:auto">
             <table>
-              <thead>
+              <thead style="position:sticky;top:0;z-index:1">
                 <tr>
                   <th>სტ.</th><th>ნომერი</th><th>მანქანა</th><th>რეცხვა</th>
-                  <th>თანხა</th><th>გადახდა</th><th>ბოქსი</th><th>დრო</th><th></th>
+                  <th>თანხა</th><th>გადახდა</th><th>ბოქსი</th><th>შენიშვნა</th><th>დრო</th><th></th>
                 </tr>
               </thead>
               <tbody id="entries-tbody">
-                <tr class="empty-row"><td colspan="9">ჩატვირთვა...</td></tr>
+                <tr class="empty-row"><td colspan="10">ჩატვირთვა...</td></tr>
               </tbody>
             </table>
           </div>
@@ -310,11 +315,6 @@
             <input type="text" id="edit-plate" required style="text-transform:uppercase"></div>
         </div>
         <div class="form-group">
-          <label>ლოიალობა</label>
-          <div class="input-wrap"><span class="input-icon">🎫</span>
-            <input type="text" id="edit-loyalty"></div>
-        </div>
-        <div class="form-group">
           <label>მანქანა</label>
           <div class="input-wrap"><span class="input-icon">🚙</span>
             <select id="edit-car-type"></select></div>
@@ -325,19 +325,24 @@
             <select id="edit-wash-type"></select></div>
         </div>
         <div class="form-group">
+          <label>ბოქსი</label>
+          <div class="input-wrap"><span class="input-icon">📍</span>
+            <select id="edit-box"></select></div>
+        </div>
+        <div class="form-group">
           <label>თანხა (₾)</label>
           <div class="input-wrap"><span class="input-icon">₾</span>
             <input type="number" id="edit-cost" min="0" step="1" required></div>
         </div>
         <div class="form-group">
-          <label>გადახდა</label>
-          <div class="input-wrap"><span class="input-icon">💳</span>
-            <select id="edit-payment"></select></div>
+          <label>ლოიალობის კოდი</label>
+          <div class="input-wrap"><span class="input-icon">🎫</span>
+            <input type="text" id="edit-loyalty"></div>
         </div>
-        <div class="form-group">
-          <label>ბოქსი</label>
-          <div class="input-wrap"><span class="input-icon">📍</span>
-            <select id="edit-box"></select></div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>ტელეფონი</label>
+          <div class="input-wrap"><span class="input-icon">📞</span>
+            <input type="text" id="edit-phone" placeholder="+995 5XX XXX XXX"></div>
         </div>
       </div>
       <div style="display:flex;gap:8px">

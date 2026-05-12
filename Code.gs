@@ -189,32 +189,37 @@ function addEntry(data) {
     const sheet = _getSheet(SH.DAILY);
     _ensureHeader(sheet, ['Plate Number','Car Type','Wash Type','Cost',
                           'Payment Type','Box','Timestamp','Notes','Status']);
-    const isPending = data.status === 'Pending';
+    // Build notes: loyalty + phone stored together
+    const noteParts = [];
+    if (data.loyaltyCode && data.loyaltyCode.trim()) noteParts.push('L:' + data.loyaltyCode.trim());
+    if (data.phone       && data.phone.trim())        noteParts.push('T:' + data.phone.trim());
+    const notes = noteParts.join(' | ');
+
+    // All entries start as Pending — payment collected via Collect button
     sheet.appendRow([
       (data.plateNumber || '').toUpperCase(),
       data.carType,
       data.washType,
       parseFloat(data.cost) || 0,
-      isPending ? 'Pending' : (data.paymentType || 'Cash'),
+      'Pending',
       data.box,
       new Date(),
-      data.loyaltyCode || '',
-      isPending ? 'Pending' : 'Paid'
+      notes,
+      'Pending'
     ]);
     return { success:true };
   } catch(e) { return { success:false, message:e.message }; }
 }
 
 // ============================================================
-//  GET RECENT ENTRIES
+//  GET ALL ENTRIES (full shift, all editable)
 // ============================================================
-function getRecentEntries(n) {
-  n = n || 10;
+function getRecentEntries(n) { return getAllEntries(); } // kept for live.html compat
+
+function getAllEntries() {
   const entries = _getDailyEntries();
-  const slice   = entries.slice(-n);
-  const offset  = entries.length - slice.length;
-  return slice.map((row, i) => ({
-    rowIndex    : offset + i,
+  return entries.map((row, i) => ({
+    rowIndex    : i,
     plateNumber : row[COL.PLATE]    || '',
     carType     : row[COL.CAR_TYPE] || '',
     washType    : row[COL.WASH_TYPE]|| '',
@@ -225,7 +230,7 @@ function getRecentEntries(n) {
       ? Utilities.formatDate(new Date(row[COL.TIMESTAMP]), Session.getScriptTimeZone(), 'HH:mm')
       : '',
     notes       : row[COL.NOTES]  || '',
-    status      : row[COL.STATUS] || 'Paid'
+    status      : row[COL.STATUS] || 'Pending'
   }));
 }
 
@@ -249,15 +254,21 @@ function updateEntry(rowIndex, data) {
   try {
     const sheet    = _getSheet(SH.DAILY);
     const sheetRow = rowIndex + 2;
-    const isPending = data.status === 'Pending';
+    const isPending = (data.status || 'Pending') === 'Pending';
+
+    const noteParts = [];
+    if (data.loyaltyCode && data.loyaltyCode.trim()) noteParts.push('L:' + data.loyaltyCode.trim());
+    if (data.phone       && data.phone.trim())        noteParts.push('T:' + data.phone.trim());
+    const notes = noteParts.join(' | ');
+
     sheet.getRange(sheetRow, 1, 1, 9).setValues([[
       (data.plateNumber || '').toUpperCase(),
       data.carType, data.washType,
       parseFloat(data.cost) || 0,
-      isPending ? 'Pending' : data.paymentType,
+      isPending ? 'Pending' : (data.paymentType || 'Cash'),
       data.box,
       sheet.getRange(sheetRow, 7).getValue(),
-      data.loyaltyCode || '',
+      notes,
       isPending ? 'Pending' : 'Paid'
     ]]);
     return { success:true };
