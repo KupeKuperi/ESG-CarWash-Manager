@@ -270,76 +270,106 @@ select{cursor:pointer;appearance:none;
 .tab-panel.active{display:flex}
 
 /* ============================================================
-   EXCEL-STYLE GRID
+   EXCEL-STYLE GRID  (native spreadsheet feel)
    ============================================================ */
-.egrid-wrap{flex:1;overflow:auto;padding:0}
+.egrid-wrap{flex:1;overflow:auto;padding:0;position:relative}
 
-.egrid{border-collapse:collapse;width:100%;min-width:900px;
-  background:var(--surface)}
+.egrid{border-collapse:collapse;width:100%;min-width:940px;background:var(--surface)}
 
-/* Column headers */
+/* Sticky column headers */
 .egrid thead th{
   position:sticky;top:0;z-index:10;
-  background:var(--grid-head);border:1px solid var(--border-md);
-  padding:6px 8px;font-size:11px;font-weight:700;text-align:center;
-  color:var(--text-2);white-space:nowrap;letter-spacing:.3px;
-  user-select:none}
-.egrid thead th.col-num{width:36px;background:#EAECF0}
+  background:#EAECF0;border:1px solid var(--border-md);
+  padding:5px 8px;font-size:10px;font-weight:700;text-align:left;
+  color:var(--text-2);white-space:nowrap;letter-spacing:.4px;
+  text-transform:uppercase;user-select:none}
+.egrid thead th.col-num{width:38px;text-align:center;background:#DDE0E8}
 
-/* Data cells */
+/* ── Grid rows ── */
 .egrid tbody td{
-  border:1px solid #E5E7EB;padding:0;height:30px;
-  vertical-align:middle;background:var(--grid-row)}
-.egrid tbody td.col-num{
-  background:var(--grid-head);text-align:center;
-  font-size:11px;color:var(--text-4);
-  border-color:var(--border-md);user-select:none;
-  padding:0 4px}
-.egrid tbody tr:hover td:not(.col-num){background:var(--grid-hover)}
-.egrid tbody tr.row-pending td:not(.col-num){background:var(--row-pending)}
-.egrid tbody tr.row-pending:hover td:not(.col-num){background:#FEF3C7}
-.egrid tbody tr.row-cash td:not(.col-num){background:var(--row-cash)}
-.egrid tbody tr.row-card td:not(.col-num){background:var(--row-card)}
-.egrid tbody tr.row-talon td:not(.col-num){background:var(--row-talon)}
-.egrid tbody tr.row-vip td{border-left:3px solid var(--vip-bdr)}
-.egrid tbody tr.row-new td:not(.col-num){background:#F0F7FF}
+  border-right:1px solid #E5E7EB;border-bottom:1px solid #E5E7EB;
+  padding:0;height:28px;vertical-align:middle;background:var(--surface)}
 
-/* Cell focus: Excel-style blue border */
+/* Row number column */
+.egrid tbody td.col-num{
+  background:#F2F4F8;border-right:1px solid var(--border-md)!important;
+  text-align:center;font-size:11px;color:var(--text-4);
+  padding:0 4px;user-select:none;min-width:38px}
+
+/* Empty rows (no plate typed) */
+.egrid tbody tr.is-empty td:not(.col-num){background:#FAFAFA}
+.egrid tbody tr.is-empty td.col-num{color:#D1D5DB}
+
+/* Hover */
+.egrid tbody tr:not(.is-empty):hover td:not(.col-num){background:var(--grid-hover)}
+.egrid tbody tr.is-empty:hover td:not(.col-num){background:#F5F5F5}
+
+/* ── Box row colours (applied via JS on box select change) ── */
+.egrid tbody tr.bx-1:not(.is-empty) td.col-num{border-left:3px solid var(--bx1)!important}
+.egrid tbody tr.bx-1:not(.is-empty) td:not(.col-num){background:var(--bx1-bg)}
+.egrid tbody tr.bx-1:not(.is-empty):hover td:not(.col-num){background:#DBE9FF}
+
+.egrid tbody tr.bx-2:not(.is-empty) td.col-num{border-left:3px solid var(--bx2)!important}
+.egrid tbody tr.bx-2:not(.is-empty) td:not(.col-num){background:var(--bx2-bg)}
+.egrid tbody tr.bx-2:not(.is-empty):hover td:not(.col-num){background:#C6F2DF}
+
+.egrid tbody tr.bx-3:not(.is-empty) td.col-num{border-left:3px solid var(--bx3)!important}
+.egrid tbody tr.bx-3:not(.is-empty) td:not(.col-num){background:var(--bx3-bg)}
+.egrid tbody tr.bx-3:not(.is-empty):hover td:not(.col-num){background:#FEF3C7}
+
+.egrid tbody tr.bx-4:not(.is-empty) td.col-num{border-left:3px solid var(--bx4)!important}
+.egrid tbody tr.bx-4:not(.is-empty) td:not(.col-num){background:var(--bx4-bg)}
+.egrid tbody tr.bx-4:not(.is-empty):hover td:not(.col-num){background:#EDE9FE}
+
+/* VIP wash tint – slightly golden text on wash-type cell */
+.egrid tbody tr.is-vip .vip-cell{color:var(--vip);font-weight:700}
+
+/* Paid row checkmark tint */
+.egrid tbody tr.paid-cash td:not(.col-num){background:#F0FDF4}
+.egrid tbody tr.paid-card td:not(.col-num){background:#F0F7FF}
+.egrid tbody tr.paid-talon td:not(.col-num){background:#FFFDF5}
+
+/* ── Cell focus: Excel blue selection box ── */
 .egrid tbody td:focus-within:not(.col-num):not(.col-ro){
   outline:2px solid var(--esg-blue);outline-offset:-1px;
-  position:relative;z-index:2;background:var(--surface)!important}
+  position:relative;z-index:3;background:var(--surface)!important}
 
-/* Inputs inside cells */
+/* ── Inputs & selects inside cells ── */
 .egrid td input,.egrid td select{
   width:100%;height:100%;border:none;outline:none;
   padding:0 7px;background:transparent;
   font-size:13px;font-family:var(--font);color:var(--text)}
-.egrid td input[type="number"]{text-align:right;padding-right:6px}
-.egrid td select{padding-right:20px;appearance:none;cursor:pointer;
+.egrid td input[type="number"]{text-align:right;padding-right:6px;font-weight:600}
+.egrid td select{
+  padding-right:18px;appearance:none;cursor:pointer;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239CA3AF' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 4px center}
-.egrid td input::placeholder{color:var(--text-4);font-style:italic}
+  background-repeat:no-repeat;background-position:right 3px center}
+.egrid td input::placeholder{color:#C9CDD4;font-style:normal}
 
-/* Read-only cells */
-.egrid td.col-ro{padding:0 8px;font-size:12px;color:var(--text-3);
-  white-space:nowrap;text-align:center}
+/* ── Read-only cells ── */
+.egrid td.col-ro{padding:0 7px;font-size:11px;color:var(--text-3);
+  white-space:nowrap;vertical-align:middle}
 
-/* Status badges in grid */
-.grid-badge{display:inline-flex;align-items:center;gap:4px;
-  padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600}
-.gb-pending{background:var(--talon-bg);color:var(--talon);border:1px solid var(--talon-bdr)}
-.gb-cash   {background:var(--cash-bg); color:var(--cash); border:1px solid var(--cash-bdr)}
-.gb-card   {background:var(--card-bg); color:var(--card-pay);border:1px solid var(--card-bdr)}
-.gb-talon  {background:var(--vip-bg);  color:var(--talon); border:1px solid var(--vip-bdr)}
+/* ── Status / payment badge ── */
+.pay-badge{display:inline-flex;align-items:center;padding:2px 6px;
+  border-radius:4px;font-size:11px;font-weight:600}
+.pb-pending{background:#FEF3C7;color:#92400E}
+.pb-cash   {background:#D1FAE5;color:#065F46}
+.pb-card   {background:#DBEAFE;color:#1E40AF}
+.pb-talon  {background:#FEF9C3;color:#713F12}
 
-/* Loyalty indicator */
-.loyalty-ok{font-size:10px;color:var(--cash);margin-left:2px}
-
-/* New row indicator */
-.egrid tbody tr.row-new .col-num::after{content:'★';color:var(--esg-blue);font-size:10px}
-
-/* Grid action cell */
-.egrid td.col-action{text-align:center;padding:0 4px;white-space:nowrap}
+/* ── Row action cell ── */
+.egrid td.col-action{text-align:center;padding:0 4px}
+.row-collect-btn{
+  padding:3px 9px;border:none;border-radius:4px;cursor:pointer;
+  font-size:12px;font-weight:600;font-family:var(--font);
+  background:#D1FAE5;color:#065F46;transition:all var(--tr)}
+.row-collect-btn:hover{background:#A7F3D0}
+.row-edit-btn{
+  padding:3px 7px;border:1px solid var(--border);border-radius:4px;
+  cursor:pointer;font-size:12px;background:var(--surface);
+  color:var(--text-3);transition:all var(--tr);font-family:var(--font)}
+.row-edit-btn:hover{border-color:var(--esg-blue);color:var(--esg-blue)}
 
 /* ── BOX COLORS ── */
 :root{
@@ -349,90 +379,12 @@ select{cursor:pointer;appearance:none;
   --bx4:#7C3AED; --bx4-bg:#F5F3FF; --bx4-bdr:#DDD6FE;
 }
 
-/* ── BOX PANEL ── */
-.box-panel{flex:0 0 auto;background:var(--surface);border-bottom:2px solid var(--border-md);
-  overflow-x:auto}
-.box-panel-table{width:100%;min-width:820px;border-collapse:collapse}
-.box-panel-table thead th{
-  background:var(--grid-head);border:1px solid var(--border-md);
-  padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;
-  letter-spacing:.5px;color:var(--text-3);white-space:nowrap;text-align:left}
-
-/* Box input rows */
-.box-panel-table tbody tr{transition:background var(--tr)}
-.box-panel-table tbody td{border:1px solid var(--border);padding:0;height:40px;
-  vertical-align:middle}
-.box-panel-table tbody td input,
-.box-panel-table tbody td select{
-  width:100%;height:100%;border:none;outline:none;padding:0 8px;
-  background:transparent;font-size:13px;font-family:var(--font);color:var(--text)}
-.box-panel-table tbody td:focus-within{
-  outline:2px solid var(--esg-blue);outline-offset:-1px;position:relative;z-index:2;
-  background:var(--surface)!important}
-.box-panel-table tbody td select{
-  padding-right:20px;appearance:none;cursor:pointer;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239CA3AF' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 4px center}
-.box-panel-table tbody td input::placeholder{color:var(--text-4);font-style:italic}
-
-/* Box label cell */
-.bx-label-cell{width:80px;padding:0 10px!important;text-align:center!important;cursor:default}
-.bx-badge{display:inline-flex;align-items:center;justify-content:center;
-  width:56px;height:26px;border-radius:6px;font-size:11px;font-weight:800;
-  letter-spacing:.5px;color:#fff;white-space:nowrap}
-.bx-action-cell{width:120px;padding:4px 6px!important;text-align:center!important}
-
-/* Colored box rows */
-.bx-row-1{border-left:4px solid var(--bx1)!important;background:var(--bx1-bg)!important}
-.bx-row-1 td:not(.bx-action-cell):focus-within{background:var(--surface)!important}
-.bx-row-2{border-left:4px solid var(--bx2)!important;background:var(--bx2-bg)!important}
-.bx-row-3{border-left:4px solid var(--bx3)!important;background:var(--bx3-bg)!important}
-.bx-row-4{border-left:4px solid var(--bx4)!important;background:var(--bx4-bg)!important}
-
-.badge-bx1{background:var(--bx1)}
-.badge-bx2{background:var(--bx2)}
-.badge-bx3{background:var(--bx3)}
-.badge-bx4{background:var(--bx4)}
-
-/* Collect button per box */
-.btn-bx-collect{display:flex;align-items:center;justify-content:center;gap:5px;
-  width:100%;padding:7px 10px;border:none;border-radius:5px;
-  font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;
-  transition:all var(--tr);white-space:nowrap;color:#fff}
-.btn-bx-collect.bx1-btn{background:var(--bx1)}
-.btn-bx-collect.bx1-btn:hover{background:#2563EB}
-.btn-bx-collect.bx2-btn{background:var(--bx2)}
-.btn-bx-collect.bx2-btn:hover{background:#047857}
-.btn-bx-collect.bx3-btn{background:var(--bx3)}
-.btn-bx-collect.bx3-btn:hover{background:#B45309}
-.btn-bx-collect.bx4-btn{background:var(--bx4)}
-.btn-bx-collect.bx4-btn:hover{background:#6D28D9}
-.btn-bx-collect:disabled{opacity:.4;cursor:not-allowed}
-
-/* ── SHIFT LOG ── */
-.shift-log-wrap{flex:1;overflow:auto}
-.shift-log{border-collapse:collapse;width:100%;min-width:820px}
-.shift-log thead th{position:sticky;top:0;z-index:5;
-  background:#EAECF0;border:1px solid var(--border-md);
-  padding:5px 10px;font-size:10px;font-weight:700;text-transform:uppercase;
-  letter-spacing:.5px;color:var(--text-2);white-space:nowrap;text-align:left}
-.shift-log tbody tr{border-bottom:1px solid var(--border);transition:background var(--tr)}
-.shift-log tbody tr:hover{background:var(--grid-hover)}
-.shift-log tbody td{padding:6px 10px;font-size:12px;vertical-align:middle;
-  border-right:1px solid var(--border)}
-.shift-log tbody td:last-child{border-right:none}
-.shift-log .log-pending{background:#FFFBEB}
-.shift-log .log-pending:hover{background:#FEF3C7}
-.shift-log .log-vip td{border-left:3px solid var(--vip-bdr)}
-.shift-log .empty-log{text-align:center;padding:28px;color:var(--text-4);font-style:italic}
-
-/* Box badge in shift log */
-.log-box-badge{display:inline-flex;align-items:center;justify-content:center;
-  padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;
-  color:#fff;white-space:nowrap}
-.lbb-1{background:var(--bx1)}.lbb-2{background:var(--bx2)}
-.lbb-3{background:var(--bx3)}.lbb-4{background:var(--bx4)}
-.lbb-x{background:var(--text-3)}
+/* Box badge (used in grid rows) */
+.box-pill{display:inline-flex;align-items:center;justify-content:center;
+  padding:1px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#fff}
+.bp-1{background:var(--bx1)}.bp-2{background:var(--bx2)}
+.bp-3{background:var(--bx3)}.bp-4{background:var(--bx4)}
+.bp-x{background:var(--text-4)}
 
 /* ── BOX EARNINGS BAR ── */
 .box-bar{display:flex;align-items:stretch;background:var(--surface);

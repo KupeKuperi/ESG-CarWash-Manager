@@ -157,53 +157,30 @@
     <button class="tab-btn"        data-tab="summary"   onclick="switchTab('summary')">📊 Summary</button>
   </nav>
 
-  <!-- ════════ WASH LOG TAB ════════ -->
+  <!-- ════════ WASH LOG TAB — NATIVE EXCEL GRID ════════ -->
   <div class="tab-panel active" id="tab-washes">
-
-    <!-- 4 PERMANENT BOX INPUT ROWS -->
-    <div class="box-panel">
-      <table class="box-panel-table">
+    <div class="egrid-wrap">
+      <table class="egrid" id="wash-grid">
         <thead>
           <tr>
-            <th style="width:80px;text-align:center">ბოქსი</th>
-            <th style="min-width:115px">მანქ. ნომ.</th>
-            <th style="min-width:98px">მანქანა</th>
+            <th class="col-num" style="text-align:center">#</th>
+            <th style="min-width:118px">მანქ. ნომ.</th>
+            <th style="min-width:96px">მანქანა</th>
             <th style="min-width:108px">რეცხვა</th>
-            <th style="min-width:68px;text-align:right">₾</th>
-            <th style="min-width:98px">ლოიალ.</th>
-            <th style="min-width:120px">📞 ტელ.</th>
-            <th style="width:120px;text-align:center">გადახდა</th>
+            <th style="min-width:80px">ბოქსი</th>
+            <th style="min-width:64px;text-align:right">₾</th>
+            <th style="min-width:96px">ლოიალ.</th>
+            <th style="min-width:118px">📞 ტელ.</th>
+            <th style="min-width:50px;text-align:center">დრო</th>
+            <th style="min-width:88px;text-align:center">გადახდა</th>
+            <th style="min-width:76px;text-align:center">მოქმ.</th>
           </tr>
         </thead>
-        <tbody id="box-panel-body">
-          <!-- injected by renderBoxPanel() -->
+        <tbody id="wash-tbody">
+          <!-- pre-rendered by JS: saved rows + 25 empty rows -->
         </tbody>
       </table>
     </div>
-
-    <!-- SHIFT LOG -->
-    <div class="shift-log-wrap">
-      <table class="shift-log">
-        <thead>
-          <tr>
-            <th style="width:36px;text-align:center">#</th>
-            <th style="width:52px;text-align:center">დრო</th>
-            <th style="width:72px;text-align:center">ბოქსი</th>
-            <th style="min-width:110px">ნომ.</th>
-            <th style="min-width:90px">მანქანა</th>
-            <th style="min-width:100px">რეცხვა</th>
-            <th style="width:62px;text-align:right">₾</th>
-            <th style="width:82px;text-align:center">გადახდა</th>
-            <th style="min-width:110px">შენიშვნა</th>
-            <th style="width:80px;text-align:center">მოქმ.</th>
-          </tr>
-        </thead>
-        <tbody id="shift-log-body">
-          <tr><td colspan="10" class="empty-log">ჩატვირთვა...</td></tr>
-        </tbody>
-      </table>
-    </div>
-
   </div>
 
   <!-- ════════ INVENTORY TAB ════════ -->
