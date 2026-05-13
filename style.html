@@ -387,6 +387,26 @@ select{cursor:pointer;appearance:none;
 .bp-3{background:var(--bx3)}.bp-4{background:var(--bx4)}
 .bp-x{background:var(--text-4)}
 
+/* ── BOX CELL COLOURING (the actual TD, not just the row) ── */
+.egrid td.bc-1{background:var(--bx1)!important}
+.egrid td.bc-1 select{background:var(--bx1);color:#fff;font-weight:700}
+.egrid td.bc-2{background:var(--bx2)!important}
+.egrid td.bc-2 select{background:var(--bx2);color:#fff;font-weight:700}
+.egrid td.bc-3{background:var(--bx3)!important}
+.egrid td.bc-3 select{background:var(--bx3);color:#fff;font-weight:700}
+.egrid td.bc-4{background:var(--bx4)!important}
+.egrid td.bc-4 select{background:var(--bx4);color:#fff;font-weight:700}
+/* Keep box focus border colour matching the box */
+.egrid td.bc-1:focus-within{outline-color:var(--bx1)!important}
+.egrid td.bc-2:focus-within{outline-color:var(--bx2)!important}
+.egrid td.bc-3:focus-within{outline-color:var(--bx3)!important}
+.egrid td.bc-4:focus-within{outline-color:var(--bx4)!important}
+
+/* ── PAYMENT CELL COLOURING ── */
+.egrid td.pc-cash  select{color:var(--cash);font-weight:700}
+.egrid td.pc-card  select{color:var(--card-pay);font-weight:700}
+.egrid td.pc-talon select{color:var(--talon);font-weight:700}
+
 /* ── BOX EARNINGS BAR ── */
 .box-bar{display:flex;align-items:stretch;background:var(--surface);
   border-bottom:1px solid var(--border);flex-shrink:0}

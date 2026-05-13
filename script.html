@@ -16,9 +16,9 @@ const GEO = {
           'ივლისი','აგვისტო','სექტემბერი','ოქტომბერი','ნოემბერი','დეკემბერი']
 };
 
-// Editable columns in Tab order
-const ECOLS = ['plate','car-type','wash-type','box','cost','loyalty','phone'];
-const EMPTY_ROWS_BUFFER = 25; // always keep this many blank rows at bottom
+// Editable columns in Tab order (payment now included)
+const ECOLS = ['plate','car-type','wash-type','box','cost','loyalty','phone','payment'];
+const EMPTY_ROWS_BUFFER = 100; // pre-render 100 blank rows
 
 // ── STATE ─────────────────────────────────────────────────────
 const S = {
@@ -199,25 +199,23 @@ function makeFilledRow(r, rowNum){
   tr.dataset.dirty='false';
 
   const note=parseNotes(r.notes);
-  const payBadge=isPending
-    ?'<span class="pay-badge pb-pending">⏳ ტაბი</span>'
-    :`<span class="pay-badge pb-${(r.paymentType||'').toLowerCase()}">${esc(r.paymentType)}</span>`;
-  const actionBtn=isPending
-    ?`<button class="row-collect-btn" onclick="openCollectFromLog(${r.rowIndex},'${esc(r.plateNumber)}',${r.cost})">💰 Collect</button>`
-    :`<button class="row-edit-btn" onclick="openEditFromLog(${r.rowIndex})">✏</button>`;
+  const boxN=parseInt((r.box||'').replace(/\D/g,''));
+  const boxTdCls=boxN>=1&&boxN<=4?'bc-'+boxN:'';
+  const payTdCls=isPending?'':('pc-'+(r.paymentType||'').toLowerCase());
+  const currentPay=isPending?'':r.paymentType;
 
   tr.innerHTML=`
     <td class="col-num">${rowNum}</td>
     <td><input data-col="plate"     value="${esc(r.plateNumber)}" style="text-transform:uppercase;font-weight:600" onchange="dirtyRow(this)" onkeydown="onRowKey(event,this)"></td>
     <td><select data-col="car-type"  onchange="onBoxOrTypeChange(this)" onkeydown="onRowKey(event,this)">${carOpts(r.carType)}</select></td>
     <td class="${isVIP?'vip-cell':''}"><select data-col="wash-type" onchange="onBoxOrTypeChange(this)" onkeydown="onRowKey(event,this)">${washOpts(r.washType)}</select></td>
-    <td><select data-col="box"       onchange="onBoxOrTypeChange(this)" onkeydown="onRowKey(event,this)">${boxOpts(r.box)}</select></td>
+    <td class="${boxTdCls}"><select data-col="box" onchange="onBoxSelectChange(this)" onkeydown="onRowKey(event,this)">${boxOpts(r.box)}</select></td>
     <td><input data-col="cost"       value="${r.cost}" type="number" min="0" step="1" onchange="dirtyRow(this)" onkeydown="onRowKey(event,this)"></td>
     <td><input data-col="loyalty"    value="${esc(note.loyalty)}" placeholder="კოდი" onchange="dirtyRow(this)" onkeydown="onRowKey(event,this)" onblur="triggerLoyalty(this)"></td>
     <td><input data-col="phone"      value="${esc(note.phone)}"   placeholder="+995..." onchange="dirtyRow(this)" onkeydown="onRowKey(event,this)"></td>
-    <td class="col-ro" style="text-align:center">${esc(r.timestamp)}</td>
-    <td class="col-ro" style="text-align:center">${payBadge}</td>
-    <td class="col-action">${actionBtn}</td>`;
+    <td class="${payTdCls}"><select data-col="payment" onchange="onPaymentChange(this)" onkeydown="onRowKey(event,this)">${payOpts(currentPay)}</select></td>
+    <td class="col-ro" style="text-align:center;font-size:11px">${esc(r.timestamp)}</td>
+    <td class="col-action"><button class="row-edit-btn" onclick="openEditFromLog(${r.rowIndex})">✏</button></td>`;
   return tr;
 }
 
@@ -233,11 +231,11 @@ function makeEmptyRow(rowNum){
     <td><input data-col="plate"     placeholder="AA-000-BB" style="text-transform:uppercase" oninput="onEmptyPlateInput(this)" onkeydown="onRowKey(event,this)"></td>
     <td><select data-col="car-type"  onchange="onBoxOrTypeChange(this)" onkeydown="onRowKey(event,this)">${carOpts()}</select></td>
     <td><select data-col="wash-type" onchange="onBoxOrTypeChange(this)" onkeydown="onRowKey(event,this)">${washOpts()}</select></td>
-    <td><select data-col="box"       onchange="onBoxOrTypeChange(this)" onkeydown="onRowKey(event,this)">${boxOpts()}</select></td>
+    <td><select data-col="box"       onchange="onBoxSelectChange(this)" onkeydown="onRowKey(event,this)">${boxOpts()}</select></td>
     <td><input data-col="cost"       placeholder="0" type="number" min="0" step="1" onkeydown="onRowKey(event,this)"></td>
     <td><input data-col="loyalty"    placeholder="ლოიალ." onkeydown="onRowKey(event,this)"></td>
     <td><input data-col="phone"      placeholder="+995..." onkeydown="onRowKey(event,this)"></td>
-    <td class="col-ro"></td>
+    <td><select data-col="payment"   onchange="onPaymentChange(this)" onkeydown="onRowKey(event,this)">${payOpts()}</select></td>
     <td class="col-ro"></td>
     <td class="col-action"></td>`;
   return tr;
@@ -332,22 +330,66 @@ function onEmptyPlateInput(input){
   }
 }
 
-// ── BOX / TYPE CHANGE → update colour + auto-price ───────────
+// ── CAR TYPE / WASH TYPE change → auto-price + VIP tint ──────
 function onBoxOrTypeChange(sel){
   const tr=sel.closest('tr');
   autoPrice(tr);
-  if(sel.dataset.col==='box'){
-    // Update row colour
-    tr.classList.remove('bx-1','bx-2','bx-3','bx-4');
-    const n=parseInt((sel.value||'').replace(/\D/g,''));
-    if(n>=1&&n<=4) tr.classList.add('bx-'+n);
-  }
   if(sel.dataset.col==='wash-type'){
-    const vipCell=tr.querySelector('[data-col="wash-type"]').closest('td');
-    if(sel.value==='VIP') vipCell.classList.add('vip-cell');
-    else                   vipCell.classList.remove('vip-cell');
-    tr.classList.toggle('is-vip', sel.value==='VIP');
+    const td=sel.closest('td');
+    sel.value==='VIP'?td.classList.add('vip-cell'):td.classList.remove('vip-cell');
+    tr.classList.toggle('is-vip',sel.value==='VIP');
   }
+  dirtyRow(sel);
+}
+
+// ── BOX SELECT change → colour the box TD + update row tint ──
+function onBoxSelectChange(sel){
+  const tr=sel.closest('tr');
+  const td=sel.closest('td');
+  // Colour the box TD itself
+  td.classList.remove('bc-1','bc-2','bc-3','bc-4');
+  const n=parseInt((sel.value||'').replace(/\D/g,''));
+  if(n>=1&&n<=4) td.classList.add('bc-'+n);
+  // Row background tint
+  tr.classList.remove('bx-1','bx-2','bx-3','bx-4');
+  if(n>=1&&n<=4) tr.classList.add('bx-'+n);
+  autoPrice(tr);
+  dirtyRow(sel);
+}
+
+// ── PAYMENT SELECT change → colour pay TD, auto-mark paid ─────
+function onPaymentChange(sel){
+  const tr=sel.closest('tr');
+  const td=sel.closest('td');
+  const val=sel.value;
+
+  // Colour the payment TD
+  td.classList.remove('pc-cash','pc-card','pc-talon');
+  if(val==='Cash')  td.classList.add('pc-cash');
+  if(val==='Card')  td.classList.add('pc-card');
+  if(val==='Talon') td.classList.add('pc-talon');
+
+  // If this is a saved PENDING row and payment is selected → mark as Paid now
+  const rowIdx=parseInt(tr.dataset.rowIdx);
+  if(tr.dataset.state==='pending' && val && !isNaN(rowIdx)){
+    google.script.run
+      .withSuccessHandler(res=>{
+        if(res.success){
+          tr.dataset.state='paid';
+          // Row paid colour
+          tr.classList.remove('bx-1','bx-2','bx-3','bx-4');
+          const box=tr.querySelector('[data-col="box"]')?.value;
+          const bc=boxClass(box); if(bc) tr.classList.add(bc);
+          tr.classList.remove('paid-cash','paid-card','paid-talon');
+          tr.classList.add('paid-'+val.toLowerCase());
+          refreshStats();
+          toast('✓ '+val+' — გადახდა მიღებულია','success');
+        }
+      })
+      .withFailureHandler(()=>{})
+      .markAsPaid(rowIdx, val);
+  }
+
   dirtyRow(sel);
 }
 
@@ -377,6 +419,7 @@ function maybeSaveRow(tr){
 }
 
 function submitNewRow(tr, plate){
+  const payVal=tr.querySelector('[data-col="payment"]')?.value||'';
   const data={
     plateNumber: plate,
     carType    : tr.querySelector('[data-col="car-type"]').value,
@@ -385,7 +428,8 @@ function submitNewRow(tr, plate){
     cost       : parseFloat(tr.querySelector('[data-col="cost"]').value)||0,
     loyaltyCode: tr.querySelector('[data-col="loyalty"]').value.trim(),
     phone      : tr.querySelector('[data-col="phone"]').value.trim(),
-    status     : 'Pending'
+    paymentType: payVal||'Pending',
+    status     : payVal?'Paid':'Pending'
   };
   if(data.cost<=0){ toast('თანხა ჩაწერეთ','warning'); tr.querySelector('[data-col="cost"]').focus(); return; }
 
@@ -447,15 +491,19 @@ function triggerLoyalty(input){
     .updateLoyalty(code);
 }
 
-// ── SELECT OPTION BUILDERS ────────────────────────────────────
+// ── SELECT OPTION BUILDERS  (all start with blank "—") ───────
 function carOpts(sel){
-  return CAR_TYPES.map(v=>`<option${v===sel?' selected':''}>${v}</option>`).join('');
+  return `<option value="">—</option>`+CAR_TYPES.map(v=>`<option${v===sel?' selected':''}>${v}</option>`).join('');
 }
 function washOpts(sel){
-  return WASH_TYPES.map(v=>`<option${v===sel?' selected':''}>${v}</option>`).join('');
+  return `<option value="">—</option>`+WASH_TYPES.map(v=>`<option${v===sel?' selected':''}>${v}</option>`).join('');
 }
 function boxOpts(sel){
-  return BOXES.map(v=>`<option${v===sel?' selected':''}>${v}</option>`).join('');
+  return `<option value="">—</option>`+BOXES.map(v=>`<option${v===sel?' selected':''}>${v}</option>`).join('');
+}
+function payOpts(sel){
+  const pays=['Cash','Card','Talon'];
+  return `<option value="">—</option>`+pays.map(v=>`<option${v===sel?' selected':''}>${v}</option>`).join('');
 }
 
 // ── BOX / PAY CLASS HELPERS ───────────────────────────────────
@@ -683,7 +731,7 @@ function renderShiftModal(s){
 function onAfterClose(){
   document.getElementById('summary-modal').classList.remove('open');
   S.savedRows=[];
-  buildGrid([], EMPTY_ROWS_BUFFER);
+  buildGrid([], 100);
   bindGridKeyboard();
   renderStats({totalWashes:0,cashTotal:0,cardTotal:0,talonCount:0,talonValue:0,
     pendingCount:0,pendingValue:0,vipCount:0,totalRevenue:0,bonusReached:false,boxData:{}});
