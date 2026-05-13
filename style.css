@@ -341,6 +341,99 @@ select{cursor:pointer;appearance:none;
 /* Grid action cell */
 .egrid td.col-action{text-align:center;padding:0 4px;white-space:nowrap}
 
+/* ── BOX COLORS ── */
+:root{
+  --bx1:#3B82F6; --bx1-bg:#EFF6FF; --bx1-bdr:#BFDBFE;
+  --bx2:#059669; --bx2-bg:#ECFDF5; --bx2-bdr:#A7F3D0;
+  --bx3:#D97706; --bx3-bg:#FFFBEB; --bx3-bdr:#FDE68A;
+  --bx4:#7C3AED; --bx4-bg:#F5F3FF; --bx4-bdr:#DDD6FE;
+}
+
+/* ── BOX PANEL ── */
+.box-panel{flex:0 0 auto;background:var(--surface);border-bottom:2px solid var(--border-md);
+  overflow-x:auto}
+.box-panel-table{width:100%;min-width:820px;border-collapse:collapse}
+.box-panel-table thead th{
+  background:var(--grid-head);border:1px solid var(--border-md);
+  padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.5px;color:var(--text-3);white-space:nowrap;text-align:left}
+
+/* Box input rows */
+.box-panel-table tbody tr{transition:background var(--tr)}
+.box-panel-table tbody td{border:1px solid var(--border);padding:0;height:40px;
+  vertical-align:middle}
+.box-panel-table tbody td input,
+.box-panel-table tbody td select{
+  width:100%;height:100%;border:none;outline:none;padding:0 8px;
+  background:transparent;font-size:13px;font-family:var(--font);color:var(--text)}
+.box-panel-table tbody td:focus-within{
+  outline:2px solid var(--esg-blue);outline-offset:-1px;position:relative;z-index:2;
+  background:var(--surface)!important}
+.box-panel-table tbody td select{
+  padding-right:20px;appearance:none;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239CA3AF' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 4px center}
+.box-panel-table tbody td input::placeholder{color:var(--text-4);font-style:italic}
+
+/* Box label cell */
+.bx-label-cell{width:80px;padding:0 10px!important;text-align:center!important;cursor:default}
+.bx-badge{display:inline-flex;align-items:center;justify-content:center;
+  width:56px;height:26px;border-radius:6px;font-size:11px;font-weight:800;
+  letter-spacing:.5px;color:#fff;white-space:nowrap}
+.bx-action-cell{width:120px;padding:4px 6px!important;text-align:center!important}
+
+/* Colored box rows */
+.bx-row-1{border-left:4px solid var(--bx1)!important;background:var(--bx1-bg)!important}
+.bx-row-1 td:not(.bx-action-cell):focus-within{background:var(--surface)!important}
+.bx-row-2{border-left:4px solid var(--bx2)!important;background:var(--bx2-bg)!important}
+.bx-row-3{border-left:4px solid var(--bx3)!important;background:var(--bx3-bg)!important}
+.bx-row-4{border-left:4px solid var(--bx4)!important;background:var(--bx4-bg)!important}
+
+.badge-bx1{background:var(--bx1)}
+.badge-bx2{background:var(--bx2)}
+.badge-bx3{background:var(--bx3)}
+.badge-bx4{background:var(--bx4)}
+
+/* Collect button per box */
+.btn-bx-collect{display:flex;align-items:center;justify-content:center;gap:5px;
+  width:100%;padding:7px 10px;border:none;border-radius:5px;
+  font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;
+  transition:all var(--tr);white-space:nowrap;color:#fff}
+.btn-bx-collect.bx1-btn{background:var(--bx1)}
+.btn-bx-collect.bx1-btn:hover{background:#2563EB}
+.btn-bx-collect.bx2-btn{background:var(--bx2)}
+.btn-bx-collect.bx2-btn:hover{background:#047857}
+.btn-bx-collect.bx3-btn{background:var(--bx3)}
+.btn-bx-collect.bx3-btn:hover{background:#B45309}
+.btn-bx-collect.bx4-btn{background:var(--bx4)}
+.btn-bx-collect.bx4-btn:hover{background:#6D28D9}
+.btn-bx-collect:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── SHIFT LOG ── */
+.shift-log-wrap{flex:1;overflow:auto}
+.shift-log{border-collapse:collapse;width:100%;min-width:820px}
+.shift-log thead th{position:sticky;top:0;z-index:5;
+  background:#EAECF0;border:1px solid var(--border-md);
+  padding:5px 10px;font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.5px;color:var(--text-2);white-space:nowrap;text-align:left}
+.shift-log tbody tr{border-bottom:1px solid var(--border);transition:background var(--tr)}
+.shift-log tbody tr:hover{background:var(--grid-hover)}
+.shift-log tbody td{padding:6px 10px;font-size:12px;vertical-align:middle;
+  border-right:1px solid var(--border)}
+.shift-log tbody td:last-child{border-right:none}
+.shift-log .log-pending{background:#FFFBEB}
+.shift-log .log-pending:hover{background:#FEF3C7}
+.shift-log .log-vip td{border-left:3px solid var(--vip-bdr)}
+.shift-log .empty-log{text-align:center;padding:28px;color:var(--text-4);font-style:italic}
+
+/* Box badge in shift log */
+.log-box-badge{display:inline-flex;align-items:center;justify-content:center;
+  padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;
+  color:#fff;white-space:nowrap}
+.lbb-1{background:var(--bx1)}.lbb-2{background:var(--bx2)}
+.lbb-3{background:var(--bx3)}.lbb-4{background:var(--bx4)}
+.lbb-x{background:var(--text-3)}
+
 /* ── BOX EARNINGS BAR ── */
 .box-bar{display:flex;align-items:stretch;background:var(--surface);
   border-bottom:1px solid var(--border);flex-shrink:0}

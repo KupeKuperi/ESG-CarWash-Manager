@@ -159,28 +159,51 @@
 
   <!-- ════════ WASH LOG TAB ════════ -->
   <div class="tab-panel active" id="tab-washes">
-    <div class="egrid-wrap">
-      <table class="egrid" id="wash-egrid">
+
+    <!-- 4 PERMANENT BOX INPUT ROWS -->
+    <div class="box-panel">
+      <table class="box-panel-table">
         <thead>
           <tr>
-            <th class="col-num">#</th>
-            <th style="min-width:115px">ნომერი</th>
-            <th style="min-width:95px">მანქანა</th>
-            <th style="min-width:105px">რეცხვა</th>
-            <th style="min-width:72px">ბოქსი</th>
-            <th style="min-width:65px;text-align:right">₾</th>
-            <th style="min-width:95px">ლოიალობა</th>
-            <th style="min-width:115px">📞 ტელეფონი</th>
-            <th style="min-width:52px;text-align:center">დრო</th>
-            <th style="min-width:90px;text-align:center">გადახდა</th>
-            <th style="min-width:80px;text-align:center">მოქმ.</th>
+            <th style="width:80px;text-align:center">ბოქსი</th>
+            <th style="min-width:115px">მანქ. ნომ.</th>
+            <th style="min-width:98px">მანქანა</th>
+            <th style="min-width:108px">რეცხვა</th>
+            <th style="min-width:68px;text-align:right">₾</th>
+            <th style="min-width:98px">ლოიალ.</th>
+            <th style="min-width:120px">📞 ტელ.</th>
+            <th style="width:120px;text-align:center">გადახდა</th>
           </tr>
         </thead>
-        <tbody id="grid-body">
-          <!-- rows injected by JS -->
+        <tbody id="box-panel-body">
+          <!-- injected by renderBoxPanel() -->
         </tbody>
       </table>
     </div>
+
+    <!-- SHIFT LOG -->
+    <div class="shift-log-wrap">
+      <table class="shift-log">
+        <thead>
+          <tr>
+            <th style="width:36px;text-align:center">#</th>
+            <th style="width:52px;text-align:center">დრო</th>
+            <th style="width:72px;text-align:center">ბოქსი</th>
+            <th style="min-width:110px">ნომ.</th>
+            <th style="min-width:90px">მანქანა</th>
+            <th style="min-width:100px">რეცხვა</th>
+            <th style="width:62px;text-align:right">₾</th>
+            <th style="width:82px;text-align:center">გადახდა</th>
+            <th style="min-width:110px">შენიშვნა</th>
+            <th style="width:80px;text-align:center">მოქმ.</th>
+          </tr>
+        </thead>
+        <tbody id="shift-log-body">
+          <tr><td colspan="10" class="empty-log">ჩატვირთვა...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
   </div>
 
   <!-- ════════ INVENTORY TAB ════════ -->
@@ -256,6 +279,49 @@
 
 <!-- ══════════════════════════ MODALS ════════════════════════════════ -->
 
+<!-- Edit Entry Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal" style="width:480px">
+    <div class="modal-hdr">
+      <span class="modal-title">✏ ჩანაწერის რედაქტირება</span>
+      <button class="modal-close" id="close-edit-modal">✕</button>
+    </div>
+    <form id="edit-form">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div><label>ნომ.</label>
+          <input type="text" id="edit-plate" required style="text-transform:uppercase"></div>
+        <div><label>მანქანა</label>
+          <select id="edit-car-type">
+            <option>სედანი</option><option>ჯიპი</option><option>ჯიპი XL</option>
+          </select></div>
+        <div><label>რეცხვა</label>
+          <select id="edit-wash-type">
+            <option>სტანდარტი</option><option>VIP</option><option>შიგნიდან</option>
+            <option>გარედან</option><option>ორივე</option><option>სხვა</option>
+          </select></div>
+        <div><label>ბოქსი</label>
+          <select id="edit-box">
+            <option>Box 1</option><option>Box 2</option><option>Box 3</option><option>Box 4</option>
+          </select></div>
+        <div><label>თანხა (₾)</label>
+          <input type="number" id="edit-cost" min="0" step="1" required></div>
+        <div><label>გადახდა</label>
+          <select id="edit-payment">
+            <option>Cash</option><option>Card</option><option>Talon</option>
+          </select></div>
+        <div><label>ლოიალობა</label>
+          <input type="text" id="edit-loyalty" placeholder="კოდი"></div>
+        <div><label>ტელეფონი</label>
+          <input type="text" id="edit-phone" placeholder="+995..."></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button type="submit" class="btn btn-primary" id="save-edit-btn">✓ შენახვა</button>
+        <button type="button" class="btn btn-outline" onclick="closeEditModal()">გაუქმება</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Collect Payment -->
 <div class="modal-overlay" id="collect-modal">
   <div class="modal" style="width:320px">
@@ -276,7 +342,7 @@
       </div>
     </div>
     <div style="display:flex;gap:8px">
-      <button class="btn btn-primary" id="confirm-pay-btn" style="flex:1" disabled onclick="confirmCollect()">✓ დასტური</button>
+      <button class="btn btn-primary" id="confirm-pay-btn" style="flex:1" disabled onclick="onConfirmPay()">✓ დასტური</button>
       <button class="btn btn-outline" onclick="closeCollectModal()">გაუქმება</button>
     </div>
   </div>
