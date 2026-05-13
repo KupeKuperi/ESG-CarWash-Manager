@@ -255,6 +255,51 @@ function addEntry(data) {
 }
 
 // ============================================================
+//  LOYALTY SYNC  (updates Users sheet on Customer QR App)
+// ============================================================
+function updateLoyalty(loyaltyCode) {
+  if (!loyaltyCode || !loyaltyCode.trim()) return { success:false };
+  try {
+    const ss    = _getSS();
+    const sheet = ss.getSheetByName('Users');
+    if (!sheet) return { success:false, message:'Users sheet not found' };
+
+    const data    = sheet.getDataRange().getValues();
+    const headers = data[0].map(h => String(h).trim().toLowerCase());
+
+    // Find columns by name (flexible mapping)
+    const codeCol  = headers.findIndex(h => h.includes('code') || h.includes('loyalty') || h === 'id');
+    const washCol  = headers.findIndex(h => h.includes('wash'));
+    const streakCol= headers.findIndex(h => h.includes('streak'));
+    const dateCol  = headers.findIndex(h => h.includes('last') || h.includes('date') || h.includes('visit'));
+
+    if (codeCol === -1) return { success:false, message:'No loyalty code column in Users sheet' };
+
+    const ri = data.findIndex((r,i) => i>0 && String(r[codeCol]).trim()===loyaltyCode.trim());
+    if (ri === -1) return { success:false, message:'Code not found' };
+
+    const today = new Date();
+    const sheetRow = ri + 1; // 1-based
+
+    if (washCol  !== -1) sheet.getRange(sheetRow, washCol+1).setValue((parseInt(data[ri][washCol])||0)+1);
+
+    if (streakCol !== -1 && dateCol !== -1) {
+      const last = data[ri][dateCol] ? new Date(data[ri][dateCol]) : null;
+      let streak = parseInt(data[ri][streakCol]) || 0;
+      if (last) {
+        const diff = Math.floor((today-last)/(864e5));
+        if (diff===1) streak++;
+        else if (diff>1) streak = 1;
+      } else { streak = 1; }
+      sheet.getRange(sheetRow, streakCol+1).setValue(streak);
+    }
+
+    if (dateCol !== -1) sheet.getRange(sheetRow, dateCol+1).setValue(today);
+    return { success:true, userName: String(data[ri][0]) };
+  } catch(e) { return { success:false, message:e.message }; }
+}
+
+// ============================================================
 //  GET ALL ENTRIES (full shift, all editable)
 // ============================================================
 function getRecentEntries(n) { return getAllEntries(); } // kept for live.html compat
