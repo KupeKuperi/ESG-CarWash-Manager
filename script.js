@@ -17,7 +17,84 @@ const GEO = {
 
 // Editable columns in Tab order (payment now included)
 const ECOLS = ['plate','car-type','wash-type','box','cost','loyalty','phone','payment'];
-const EMPTY_ROWS_BUFFER = 100; // pre-render 100 blank rows
+const EMPTY_ROWS_BUFFER = 100;
+
+// ── INSTANT LOCAL STATS (reads current DOM grid, no GAS) ──────
+function calcLocalStats() {
+  const rows = document.querySelectorAll('#wash-tbody tr');
+  let totalWashes=0, cashTotal=0, cardTotal=0, talonCount=0, talonValue=0;
+  let pendingCount=0, pendingValue=0, vipCount=0, managerVIPBonus=0;
+  const boxData={
+    'Box 1':{salary:0,washes:0},'Box 2':{salary:0,washes:0},
+    'Box 3':{salary:0,washes:0},'Box 4':{salary:0,washes:0}
+  };
+
+  rows.forEach(tr=>{
+    const plate   = (tr.querySelector('[data-col="plate"]')?.value||'').trim();
+    if(!plate) return;
+    const cost    = parseFloat(tr.querySelector('[data-col="cost"]')?.value)||0;
+    if(cost<=0) return;
+    const washType= tr.querySelector('[data-col="wash-type"]')?.value||'';
+    const box     = tr.querySelector('[data-col="box"]')?.value||'';
+    const payment = tr.querySelector('[data-col="payment"]')?.value||'';
+    const isVIP   = washType==='VIP';
+
+    totalWashes++;
+    if(isVIP){ vipCount++; managerVIPBonus+=10; }
+
+    const earning = cost*(isVIP?0.40:0.35);
+    if(boxData[box]){ boxData[box].salary+=earning; boxData[box].washes++; }
+
+    if(!payment){ pendingCount++; pendingValue+=cost; }
+    else if(payment==='Cash')  cashTotal +=cost;
+    else if(payment==='Card')  cardTotal +=cost;
+    else if(payment==='Talon'){ talonCount++; talonValue+=cost; }
+  });
+
+  const totalRevenue=cashTotal+cardTotal+talonValue;
+  const bonusReached=totalRevenue>=1600;
+  const dailyBonus=bonusReached?50:0;
+  const managerTotal=175+managerVIPBonus+dailyBonus;
+
+  return { totalWashes, cashTotal, cardTotal, talonCount, talonValue,
+           pendingCount, pendingValue, vipCount, totalRevenue,
+           managerVIPBonus, dailyBonus, managerTotal, bonusReached, boxData };
+}
+
+// ── RENDER SUMMARY FROM ANY STATS OBJECT (local or GAS) ───────
+function renderSummaryFromStats(s){
+  setEl('sv-revenue', fmt(s.totalRevenue));
+  setEl('sv-washes',  s.totalWashes);
+  setEl('sv-cash',    fmt(s.cashTotal));
+  setEl('sv-card',    fmt(s.cardTotal));
+  setEl('sv-talon',   s.talonCount+' / '+fmt(s.talonValue));
+  setEl('sv-pending', s.pendingCount+' / '+fmt(s.pendingValue));
+  ['Box 1','Box 2','Box 3','Box 4'].forEach((b,i)=>{
+    const n=i+1, bd=(s.boxData||{})[b]||{salary:0,washes:0};
+    setEl('sv-b'+n+'-sal',fmt(bd.salary));
+    setEl('sv-b'+n+'-w',  bd.washes+' რეცხ.');
+  });
+  setEl('sv-mgr-base',  '175.00₾');
+  setEl('sv-mgr-vip',   fmt(s.managerVIPBonus||0));
+  setEl('sv-mgr-bonus', s.bonusReached?'+50.00₾ ✓':'0.00₾');
+  setEl('sv-mgr-total', fmt(s.managerTotal||0));
+  const pct=Math.min(((s.totalRevenue||0)/1600)*100,100);
+  const bar=document.getElementById('sv-bonus-bar');
+  if(bar) bar.style.width=pct.toFixed(1)+'%';
+  setEl('sv-bonus-status',fmt(s.totalRevenue)+' / 1,600₾');
+  setEl('sv-bonus-lbl', s.bonusReached
+    ?'🎯 ბარიერი გადალახულია! +50₾ ბონუსი'
+    :'ბონუსამდე: '+fmt(1600-(s.totalRevenue||0)));
+}
+
+// ── MASTER UPDATE — called on every cell change ────────────────
+function updateAll(){
+  const s=calcLocalStats();
+  renderStats(s);
+  // Update summary tab live if it's open
+  const sumPanel=document.getElementById('tab-summary');
+  if(sumPanel&&sumPanel.classList.contains('active')) renderSummaryFromStats(s);
+}
 
 // ── STATE ─────────────────────────────────────────────────────
 const S = {
@@ -132,7 +209,7 @@ function switchTab(name){
   document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelector('.tab-btn[data-tab="'+name+'"]').classList.add('active');
-  if(name==='summary') refreshSummary();
+  if(name==='summary') renderSummaryFromStats(calcLocalStats()); // instant, no GAS
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -183,6 +260,8 @@ function buildGrid(savedEntries, emptyCount){
   }
 
   tbody.closest('.egrid-wrap').scrollTop=scrollTop;
+  // Recalculate from fresh DOM
+  updateAll();
 }
 
 // ── MAKE A FILLED (SAVED) ROW ─────────────────────────────────
@@ -209,7 +288,7 @@ function makeFilledRow(r, rowNum){
     <td><select data-col="car-type"  onchange="onBoxOrTypeChange(this)" onkeydown="onRowKey(event,this)">${carOpts(r.carType)}</select></td>
     <td class="${isVIP?'vip-cell':''}"><select data-col="wash-type" onchange="onBoxOrTypeChange(this)" onkeydown="onRowKey(event,this)">${washOpts(r.washType)}</select></td>
     <td class="${boxTdCls}"><select data-col="box" onchange="onBoxSelectChange(this)" onkeydown="onRowKey(event,this)">${boxOpts(r.box)}</select></td>
-    <td><input data-col="cost"       value="${r.cost}" type="number" min="0" step="1" onchange="dirtyRow(this)" onkeydown="onRowKey(event,this)"></td>
+    <td><input data-col="cost"       value="${r.cost}" type="number" min="0" step="1" onchange="dirtyRow(this)" oninput="updateAll()" onkeydown="onRowKey(event,this)"></td>
     <td><input data-col="loyalty"    value="${esc(note.loyalty)}" placeholder="კოდი" onchange="dirtyRow(this)" onkeydown="onRowKey(event,this)" onblur="triggerLoyalty(this)"></td>
     <td><input data-col="phone"      value="${esc(note.phone)}"   placeholder="+995..." onchange="dirtyRow(this)" onkeydown="onRowKey(event,this)"></td>
     <td class="${payTdCls}"><select data-col="payment" onchange="onPaymentChange(this)" onkeydown="onRowKey(event,this)">${payOpts(currentPay)}</select></td>
@@ -231,7 +310,7 @@ function makeEmptyRow(rowNum){
     <td><select data-col="car-type"  onchange="onBoxOrTypeChange(this)" onkeydown="onRowKey(event,this)">${carOpts()}</select></td>
     <td><select data-col="wash-type" onchange="onBoxOrTypeChange(this)" onkeydown="onRowKey(event,this)">${washOpts()}</select></td>
     <td><select data-col="box"       onchange="onBoxSelectChange(this)" onkeydown="onRowKey(event,this)">${boxOpts()}</select></td>
-    <td><input data-col="cost"       placeholder="0" type="number" min="0" step="1" onkeydown="onRowKey(event,this)"></td>
+    <td><input data-col="cost"       placeholder="0" type="number" min="0" step="1" oninput="updateAll()" onkeydown="onRowKey(event,this)"></td>
     <td><input data-col="loyalty"    placeholder="ლოიალ." onkeydown="onRowKey(event,this)"></td>
     <td><input data-col="phone"      placeholder="+995..." onkeydown="onRowKey(event,this)"></td>
     <td><select data-col="payment"   onchange="onPaymentChange(this)" onkeydown="onRowKey(event,this)">${payOpts()}</select></td>
@@ -320,13 +399,12 @@ function onEmptyPlateInput(input){
   const val=input.value.trim();
   if(val){
     tr.classList.remove('is-empty');
-    // Auto-price immediately
     autoPrice(tr);
   } else {
     tr.classList.add('is-empty');
-    // Remove box colours
     tr.classList.remove('bx-1','bx-2','bx-3','bx-4');
   }
+  updateAll(); // instant tracker update as plate is typed
 }
 
 // ── CAR TYPE / WASH TYPE change → auto-price + VIP tint ──────
@@ -353,7 +431,7 @@ function onBoxSelectChange(sel){
   tr.classList.remove('bx-1','bx-2','bx-3','bx-4');
   if(n>=1&&n<=4) tr.classList.add('bx-'+n);
   autoPrice(tr);
-  dirtyRow(sel);
+  dirtyRow(sel); // dirtyRow already calls updateAll()
 }
 
 // ── PAYMENT SELECT change → colour pay TD, auto-mark paid ─────
@@ -367,6 +445,9 @@ function onPaymentChange(sel){
   if(val==='Cash')  td.classList.add('pc-cash');
   if(val==='Card')  td.classList.add('pc-card');
   if(val==='Talon') td.classList.add('pc-talon');
+
+  // Instant tracker + summary update
+  updateAll();
 
   // If this is a saved PENDING row and payment is selected → mark as Paid now
   const rowIdx=parseInt(tr.dataset.rowIdx);
@@ -401,7 +482,7 @@ function autoPrice(tr){
   if(p!==undefined && (!costEl.value||costEl.value==='0')) costEl.value=p;
 }
 
-function dirtyRow(el){ const tr=el.closest('tr'); if(tr) tr.dataset.dirty='true'; }
+function dirtyRow(el){ const tr=el.closest('tr'); if(tr) tr.dataset.dirty='true'; updateAll(); }
 
 // ── SAVE ROW (called on Enter / Tab-past-last) ────────────────
 function maybeSaveRow(tr){
@@ -633,23 +714,7 @@ function renderStats(s){
 //  SUMMARY TAB
 // ═══════════════════════════════════════════════════════════════
 function refreshSummary(){
-  google.script.run.withSuccessHandler(s=>{
-    setEl('sv-revenue',fmt(s.totalRevenue));setEl('sv-washes',s.totalWashes);
-    setEl('sv-cash',fmt(s.cashTotal));setEl('sv-card',fmt(s.cardTotal));
-    setEl('sv-talon',s.talonCount+' / '+fmt(s.talonValue));
-    setEl('sv-pending',s.pendingCount+' / '+fmt(s.pendingValue));
-    ['Box 1','Box 2','Box 3','Box 4'].forEach((b,i)=>{
-      const n=i+1,bd=(s.boxData||{})[b]||{salary:0,washes:0};
-      setEl('sv-b'+n+'-sal',fmt(bd.salary));setEl('sv-b'+n+'-w',bd.washes+' რეცხ.');
-    });
-    const vipB=s.managerVIPBonus||0,dayB=s.bonusReached?50:0,mgrT=175+vipB+dayB;
-    setEl('sv-mgr-base','175.00₾');setEl('sv-mgr-vip',fmt(vipB));
-    setEl('sv-mgr-bonus',s.bonusReached?'+50.00₾ ✓':'0.00₾');setEl('sv-mgr-total',fmt(mgrT));
-    const pct=Math.min((s.totalRevenue/1600)*100,100);
-    const bar=document.getElementById('sv-bonus-bar');if(bar)bar.style.width=pct.toFixed(1)+'%';
-    setEl('sv-bonus-status',fmt(s.totalRevenue)+' / 1,600₾');
-    setEl('sv-bonus-lbl',s.bonusReached?'🎯 ბარიერი! +50₾':'ბონუსამდე: '+fmt(1600-s.totalRevenue));
-  }).withFailureHandler(()=>{}).getDashboardStats();
+  renderSummaryFromStats(calcLocalStats());
 }
 
 // ═══════════════════════════════════════════════════════════════
