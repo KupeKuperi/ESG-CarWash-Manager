@@ -9,7 +9,7 @@ const MANAGER_PIN      = '2329';
 const ROOT_FOLDER_NAME = 'ESGMall App';
 
 // ── SALARY RULES ────────────────────────────────────────────
-const MANAGER_BASE          = 175;
+const MANAGER_BASE          = 100;
 const VIP_BONUS_PER_WASH    = 10;
 const DAILY_BONUS_THRESHOLD = 1600;
 const DAILY_BONUS           = 50;

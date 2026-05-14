@@ -54,7 +54,7 @@ function calcLocalStats() {
   const totalRevenue=cashTotal+cardTotal+talonValue;
   const bonusReached=totalRevenue>=1600;
   const dailyBonus=bonusReached?50:0;
-  const managerTotal=175+managerVIPBonus+dailyBonus;
+  const managerTotal=100+managerVIPBonus+dailyBonus;
 
   return { totalWashes, cashTotal, cardTotal, talonCount, talonValue,
            pendingCount, pendingValue, vipCount, totalRevenue,
@@ -74,7 +74,7 @@ function renderSummaryFromStats(s){
     setEl('sv-b'+n+'-sal',fmt(bd.salary));
     setEl('sv-b'+n+'-w',  bd.washes+' რეცხ.');
   });
-  setEl('sv-mgr-base',  '175.00₾');
+  setEl('sv-mgr-base',  '100.00₾');
   setEl('sv-mgr-vip',   fmt(s.managerVIPBonus||0));
   setEl('sv-mgr-bonus', s.bonusReached?'+50.00₾ ✓':'0.00₾');
   setEl('sv-mgr-total', fmt(s.managerTotal||0));
