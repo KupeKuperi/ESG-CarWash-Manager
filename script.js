@@ -358,9 +358,7 @@ function initApp(){
   google.script.run
     .withSuccessHandler(lists=>{
       S.lists=lists;
-      loadAndRenderGrid();
-      refreshStats();
-      S.statsTimer=setInterval(refreshStats,30000);
+      loadAndRenderGrid(); // buildGrid() inside calls updateAll() when done
     })
     .withFailureHandler(e=>toast('შეცდომა: '+e.message,'error'))
     .getListsData();
@@ -625,7 +623,7 @@ function onPaymentChange(sel){
           const bc=boxClass(box); if(bc) tr.classList.add(bc);
           tr.classList.remove('paid-cash','paid-card','paid-talon');
           tr.classList.add('paid-'+val.toLowerCase());
-          refreshStats();
+          updateAll(); // recount from DOM — instant, no GAS round-trip
           toast('✓ '+val+' — გადახდა მიღებულია','success');
         }
       })
@@ -691,8 +689,7 @@ function submitNewRow(tr, plate){
             .updateLoyalty(data.loyaltyCode);
         }
         // Refresh grid (reloads from GAS) — keeps focus via next-row navigation
-        loadAndRenderGrid();
-        refreshStats();
+        loadAndRenderGrid(); // rebuilds grid → updateAll() recalculates stats
       } else {
         tr.dataset.state='new';
         toast('შეცდომა: '+res.message,'error');
@@ -719,7 +716,7 @@ function updateExistingRow(tr){
   };
   tr.dataset.dirty='false';
   google.script.run
-    .withSuccessHandler(res=>{if(res.success){refreshStats();}})
+    .withSuccessHandler(()=>{})
     .withFailureHandler(()=>{})
     .updateEntry(rowIdx, data);
 }
@@ -957,7 +954,6 @@ function renderShiftModal(s){
 }
 function onAfterClose(){
   document.getElementById('summary-modal').classList.remove('open');
-  if(S.statsTimer){clearInterval(S.statsTimer);S.statsTimer=null;}
   S.managerName=''; S.savedRows=[]; S.lists=null;
   document.getElementById('app').classList.remove('visible');
   buildGrid([], 100);
@@ -974,7 +970,6 @@ function onAfterClose(){
 function bindLogout(){
   document.getElementById('logout-btn').addEventListener('click',()=>{
     if(!confirm('გამოსვლა?')) return;
-    if(S.statsTimer){clearInterval(S.statsTimer);S.statsTimer=null;}
     S.managerName='';S.savedRows=[];S.lists=null;
     document.getElementById('app').classList.remove('visible');
     document.getElementById('start-shift-screen').classList.remove('visible');
