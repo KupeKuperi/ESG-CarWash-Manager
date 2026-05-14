@@ -556,6 +556,115 @@ select{cursor:pointer;appearance:none;
 }
 
 /* ============================================================
+   LIVE SCREEN  (dark real-time dashboard, embedded in index.html)
+   ============================================================ */
+#live-screen{
+  display:none;position:fixed;inset:0;z-index:950;
+  background:#1A2132;color:#E2EAF4;
+  overflow-y:auto;padding:24px 28px;
+  font-family:var(--font)}
+#live-screen.visible{display:block}
+
+/* ── Header ── */
+.ls-header{display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap}
+.ls-logo{display:flex;align-items:center;gap:12px}
+.ls-logo-badge{width:46px;height:46px;border-radius:12px;flex-shrink:0;
+  background:linear-gradient(135deg,#008CCF,#0055A0);
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:800;color:#fff;letter-spacing:.5px;
+  box-shadow:0 4px 16px rgba(0,140,207,.45)}
+.ls-title{font-size:18px;font-weight:700;color:#E2EAF4;letter-spacing:.5px}
+.ls-title span{color:#008CCF}
+.ls-subtitle{font-size:10px;color:#8A9BBE;letter-spacing:1.2px;text-transform:uppercase;margin-top:1px}
+
+.ls-live-badge{display:flex;align-items:center;gap:7px;padding:5px 14px;margin-left:auto;
+  background:rgba(255,82,82,.12);border:1px solid rgba(255,82,82,.5);border-radius:20px}
+.ls-live-dot{width:8px;height:8px;border-radius:50%;background:#FF5252;
+  animation:livepulse 1.2s infinite}
+.ls-live-badge span{font-size:12px;font-weight:700;color:#FF7070;letter-spacing:1px}
+
+.ls-clock{text-align:right;flex-shrink:0}
+.ls-clock>div:first-child{font-size:10px;color:#8A9BBE;margin-bottom:2px}
+.ls-time{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:#E2EAF4;letter-spacing:1px}
+
+/* ── Meta row ── */
+.ls-meta{display:flex;align-items:center;gap:20px;margin-bottom:18px;
+  font-size:12px;color:#8A9BBE;flex-wrap:wrap;
+  background:#222B3A;border:1px solid rgba(255,255,255,.06);
+  border-radius:8px;padding:8px 14px}
+.ls-meta strong{color:#E2EAF4}
+.ls-refresh-dot{width:6px;height:6px;border-radius:50%;background:#10B981;
+  animation:livepulse 2s infinite}
+
+/* ── Stats grid ── */
+.ls-stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+  gap:10px;margin-bottom:12px}
+.ls-card{background:#222B3A;border:1px solid rgba(255,255,255,.07);
+  border-radius:10px;padding:14px 16px}
+.ls-card.accent{border-color:rgba(0,140,207,.6);background:rgba(0,140,207,.1)}
+.ls-card.green {border-color:rgba(5,150,105,.5);background:rgba(5,150,105,.08)}
+.ls-card.blue  {border-color:rgba(59,130,246,.5);background:rgba(59,130,246,.08)}
+.ls-card.amber {border-color:rgba(217,119,6,.5);background:rgba(217,119,6,.08)}
+.ls-card.red   {border-color:rgba(220,38,38,.4);background:rgba(220,38,38,.07)}
+.lsc-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+  color:#8A9BBE;margin-bottom:5px}
+.lsc-value{font-size:24px;font-weight:800;color:#E2EAF4;line-height:1}
+.ls-card.accent .lsc-value{color:#008CCF}
+.ls-card.green  .lsc-value{color:#10B981}
+.ls-card.blue   .lsc-value{color:#60A5FA}
+.ls-card.amber  .lsc-value{color:#F59E0B}
+.ls-card.red    .lsc-value{color:#F87171}
+
+/* ── Box row ── */
+.ls-boxes{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.ls-box-card{background:#222B3A;border:1px solid rgba(255,255,255,.07);
+  border-radius:10px;padding:12px 10px;text-align:center}
+.ls-box-card.bx1{border-top:3px solid #3B82F6}
+.ls-box-card.bx2{border-top:3px solid #059669}
+.ls-box-card.bx3{border-top:3px solid #D97706}
+.ls-box-card.bx4{border-top:3px solid #7C3AED}
+.lsb-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;
+  color:#8A9BBE;margin-bottom:4px}
+.lsb-sal{font-size:20px;font-weight:800;color:#E2EAF4}
+.lsb-w{font-size:10px;color:#5A6A85;margin-top:2px}
+
+/* ── Bonus bar ── */
+.ls-bonus-wrap{background:#222B3A;border:1px solid rgba(255,255,255,.07);
+  border-radius:10px;padding:12px 16px;margin-bottom:18px}
+.ls-bonus-header{display:flex;justify-content:space-between;align-items:center;
+  font-size:12px;font-weight:600;color:#E2EAF4;margin-bottom:7px}
+.ls-bonus-track{height:8px;background:#111827;border-radius:4px;overflow:hidden}
+.ls-bonus-fill{height:100%;background:linear-gradient(90deg,#008CCF,#10B981);
+  border-radius:4px;transition:width .6s ease}
+.ls-bonus-lbl{font-size:11px;color:#5A6A85;margin-top:4px;text-align:right}
+
+/* ── Wash log ── */
+.ls-section-title{font-size:10px;font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;color:#8A9BBE;margin-bottom:8px}
+.ls-log-wrap{background:#222B3A;border:1px solid rgba(255,255,255,.07);
+  border-radius:10px;overflow:auto;max-height:420px;margin-bottom:80px}
+.ls-log-table{border-collapse:collapse;width:100%;min-width:580px}
+.ls-log-table thead th{position:sticky;top:0;z-index:2;background:#1A2132;
+  padding:8px 10px;font-size:9px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.8px;color:#8A9BBE;border-bottom:1px solid rgba(255,255,255,.07);
+  text-align:left}
+.ls-log-table tbody td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.04);
+  font-size:12px;color:#C8D8EE}
+.ls-log-table tbody tr:hover td{background:rgba(255,255,255,.03)}
+.ls-log-table tbody tr.ls-row-pending td{background:rgba(245,158,11,.04)}
+.ls-plate{font-family:'Courier New',monospace;font-weight:700;letter-spacing:.5px}
+
+/* ── Floating Admin button ── */
+.ls-admin-btn{position:fixed;bottom:24px;right:24px;z-index:960;
+  padding:10px 22px;
+  background:rgba(0,140,207,.12);border:1px solid rgba(0,140,207,.35);
+  border-radius:22px;color:#008CCF;font-size:13px;font-weight:700;
+  cursor:pointer;transition:all .2s ease;font-family:var(--font);
+  backdrop-filter:blur(6px)}
+.ls-admin-btn:hover{background:rgba(0,140,207,.28);border-color:#008CCF;
+  box-shadow:0 4px 20px rgba(0,140,207,.35);transform:translateY(-1px)}
+
+/* ============================================================
    LIVE VIEW PAGE  (unchanged dark theme)
    ============================================================ */
 .live-page{min-height:100vh;background:#353C4C;color:#E2EAF4;

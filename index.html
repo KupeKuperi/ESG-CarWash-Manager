@@ -65,6 +65,102 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════ LIVE SCREEN ══════════════════════════════ -->
+<div id="live-screen">
+
+  <div class="ls-header">
+    <div class="ls-logo">
+      <div class="ls-logo-badge">ESG</div>
+      <div>
+        <div class="ls-title">Car Wash &nbsp;<span>·</span>&nbsp; Live</div>
+        <div class="ls-subtitle">Real-time Dashboard</div>
+      </div>
+    </div>
+    <div class="ls-live-badge"><span class="ls-live-dot"></span><span>LIVE</span></div>
+    <div class="ls-clock">
+      <div id="ls-date">—</div>
+      <div class="ls-time"><span id="ls-hh">00</span>:<span id="ls-mm">00</span>:<span id="ls-ss">00</span></div>
+    </div>
+  </div>
+
+  <div class="ls-meta">
+    <span>მენეჯერი: <strong id="ls-manager">—</strong></span>
+    <span>ცვლა: <strong id="ls-shift-start">—</strong></span>
+    <span id="ls-refresh-status" style="margin-left:auto;display:flex;align-items:center;gap:5px">
+      <span class="ls-refresh-dot"></span>განახლება ყოველ 15 წამში
+    </span>
+  </div>
+
+  <!-- Stats -->
+  <div class="ls-stats-grid">
+    <div class="ls-card accent"><div class="lsc-label">სულ შემოსავალი</div><div class="lsc-value" id="ls-revenue">0₾</div></div>
+    <div class="ls-card"      ><div class="lsc-label">სულ მობანება</div>  <div class="lsc-value" id="ls-washes">0</div></div>
+    <div class="ls-card green"><div class="lsc-label">ქეში</div>          <div class="lsc-value" id="ls-cash">0₾</div></div>
+    <div class="ls-card blue" ><div class="lsc-label">ბარათი</div>        <div class="lsc-value" id="ls-card">0₾</div></div>
+    <div class="ls-card amber"><div class="lsc-label">ტალონი</div>        <div class="lsc-value" id="ls-talon">0</div></div>
+    <div class="ls-card red"  ><div class="lsc-label">გადაუხდელი (ტაბი)</div><div class="lsc-value" id="ls-pending">0</div></div>
+  </div>
+
+  <!-- Box earnings -->
+  <div class="ls-boxes">
+    <div class="ls-box-card bx1"><div class="lsb-label">Box 1</div><div class="lsb-sal" id="ls-b1-sal">0₾</div><div class="lsb-w" id="ls-b1-w">0 რეცხ.</div></div>
+    <div class="ls-box-card bx2"><div class="lsb-label">Box 2</div><div class="lsb-sal" id="ls-b2-sal">0₾</div><div class="lsb-w" id="ls-b2-w">0 რეცხ.</div></div>
+    <div class="ls-box-card bx3"><div class="lsb-label">Box 3</div><div class="lsb-sal" id="ls-b3-sal">0₾</div><div class="lsb-w" id="ls-b3-w">0 რეცხ.</div></div>
+    <div class="ls-box-card bx4"><div class="lsb-label">Box 4</div><div class="lsb-sal" id="ls-b4-sal">0₾</div><div class="lsb-w" id="ls-b4-w">0 რეცხ.</div></div>
+  </div>
+
+  <!-- Bonus progress -->
+  <div class="ls-bonus-wrap">
+    <div class="ls-bonus-header">
+      <span>1,600₾ ბონუსი</span>
+      <span id="ls-bonus-status">0₾ / 1,600₾</span>
+    </div>
+    <div class="ls-bonus-track"><div class="ls-bonus-fill" id="ls-bonus-bar" style="width:0%"></div></div>
+    <div class="ls-bonus-lbl" id="ls-bonus-lbl">ბონუსამდე...</div>
+  </div>
+
+  <!-- Full wash log -->
+  <div class="ls-section-title">მობანების სრული ჟურნალი</div>
+  <div class="ls-log-wrap">
+    <table class="ls-log-table">
+      <thead>
+        <tr>
+          <th>#</th><th>ნომ.</th><th>მანქანა</th><th>რეცხვა</th>
+          <th>ბოქსი</th><th style="text-align:right">₾</th><th>გადახდა</th><th>დრო</th>
+        </tr>
+      </thead>
+      <tbody id="ls-log-tbody">
+        <tr><td colspan="8" style="text-align:center;color:#5A6A85;padding:20px">მიმდინარეობს ჩატვირთვა...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Floating admin button -->
+  <button class="ls-admin-btn" id="admin-access-btn" onclick="showAdminPinOverlay()">🔐 Admin</button>
+
+</div><!-- /live-screen -->
+
+<!-- Admin PIN Overlay -->
+<div class="modal-overlay" id="admin-pin-overlay">
+  <div class="modal" style="width:320px;text-align:center">
+    <div style="font-size:36px;margin-bottom:10px">🔐</div>
+    <h2 style="margin-bottom:6px">Admin View</h2>
+    <p style="color:var(--text-3);font-size:13px;margin-bottom:18px">Admin PIN შეიყვანეთ</p>
+    <div class="fg" style="margin-bottom:10px">
+      <input type="password" id="admin-pin-input" placeholder="••••" maxlength="6"
+             inputmode="numeric"
+             style="text-align:center;font-size:22px;letter-spacing:8px;padding:10px"
+             onkeydown="if(event.key==='Enter')unlockAdminFromLive()"
+             oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)">
+    </div>
+    <div class="login-error" id="admin-pin-error"></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-primary" style="flex:1" id="admin-pin-btn" onclick="unlockAdminFromLive()">შესვლა</button>
+      <button class="btn btn-outline" onclick="hideAdminPinOverlay()">გაუქმება</button>
+    </div>
+  </div>
+</div>
+
 <!-- ════════════════════════════ MAIN APP ════════════════════════════════ -->
 <div id="app">
 
@@ -126,9 +222,6 @@
 
     <!-- Actions -->
     <div class="hdr-actions">
-      <a class="live-pill" id="live-link-btn" href="#" target="_blank">
-        <span class="live-dot"></span>LIVE
-      </a>
       <button class="btn btn-outline btn-sm" id="logout-btn">↩ გამოსვლა</button>
       <button class="btn btn-primary" id="close-shift-btn">🔒 ცვლის დახურვა</button>
     </div>

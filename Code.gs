@@ -6,6 +6,7 @@
 // ── USER CONFIG ─────────────────────────────────────────────
 const SPREADSHEET_ID   = '1ufhpPY_J366QJ1qf5wEjpvlbHVORIZX59EBwbn3NZsc';
 const MANAGER_PIN      = '2329';
+const ADMIN_VIEW_PIN   = '1234';
 const ROOT_FOLDER_NAME = 'ESGMall App';
 
 // ── SALARY RULES ────────────────────────────────────────────
@@ -113,6 +114,29 @@ function getWebAppUrl() {
   return ScriptApp.getService().getUrl();
 }
 
+// ── Check if a shift is currently active ─────────────────────
+function isShiftActive() {
+  const props = PropertiesService.getScriptProperties().getProperties();
+  if (!props.currentManager) return { active: false };
+  return { active: true, managerName: props.currentManager, shiftStart: props.shiftStart || null };
+}
+
+// ── Unlock manager access during an active shift ──────────────
+function unlockManagerAccess(pin) {
+  if (pin !== MANAGER_PIN) return { success: false, message: 'PIN კოდი არასწორია' };
+  const props = PropertiesService.getScriptProperties().getProperties();
+  if (!props.currentManager) return { success: false, message: 'ცვლა არ არის დაწყებული' };
+  return { success: true, managerName: props.currentManager, shiftStart: props.shiftStart || null };
+}
+
+// ── Unlock read-only admin view (separate PIN, non-disruptive) ─
+function unlockAdminView(pin) {
+  if (pin !== ADMIN_VIEW_PIN) return { success: false, message: 'Admin PIN არასწორია' };
+  const props = PropertiesService.getScriptProperties().getProperties();
+  if (!props.currentManager) return { success: false, message: 'ცვლა არ არის დაწყებული' };
+  return { success: true, managerName: props.currentManager, shiftStart: props.shiftStart || null };
+}
+
 // ── Called when manager clicks "Start Shift" on the confirmation screen ──
 function setShiftStart(managerName) {
   const now = new Date();
@@ -212,14 +236,16 @@ function getDashboardStats() {
 //  LIVE VIEW DATA
 // ============================================================
 function getLiveViewData() {
-  const stats  = getDashboardStats();
-  const props  = PropertiesService.getScriptProperties().getProperties();
-  const recent = getRecentEntries(6);
+  const props = PropertiesService.getScriptProperties().getProperties();
+  if (!props.currentManager) return { active: false };
+  const stats   = getDashboardStats();
+  const entries = getAllEntries();
   return {
+    active       : true,
     stats,
-    managerName  : props.currentManager || '—',
-    shiftStart   : props.shiftStart     || null,
-    recentEntries: recent,
+    managerName  : props.currentManager,
+    shiftStart   : props.shiftStart || null,
+    allEntries   : entries,
     serverTime   : new Date().toISOString()
   };
 }

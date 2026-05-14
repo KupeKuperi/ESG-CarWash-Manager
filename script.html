@@ -99,12 +99,12 @@ function updateAll(){
 
 // ── STATE ─────────────────────────────────────────────────────
 const S = {
-  managerName : '',
-  lists       : null,
-  savedRows   : [],       // entries from GAS (today's shift)
-  statsTimer  : null,
-  webAppUrl   : '',
-  collectingRowIdx : null,  // GAS rowIndex for pending collect from log
+  managerName      : '',
+  lists            : null,
+  savedRows        : [],
+  statsTimer       : null,
+  liveRefreshTimer : null,
+  collectingRowIdx : null,
   collectPay       : null,
   editingRowIdx    : null
 };
@@ -118,8 +118,8 @@ document.addEventListener('DOMContentLoaded', () => {
   bindShiftClose();
   bindEditModal();
   addInvRow();
-  // Render placeholder grid immediately
   prerenderGrid();
+  checkShiftOnLoad(); // decide: show live screen or login
 });
 
 // ── CLOCK ─────────────────────────────────────────────────────
@@ -132,8 +132,176 @@ function startClock() {
     setEl('hdr-date',ds+', '+dt);
     setEl('ss-hh',hh);setEl('ss-mm',mm);setEl('ss-ss',ss);
     setEl('ss-day-name',ds);setEl('ss-date-str',dt);
+    // Live screen clock
+    setEl('ls-hh',hh);setEl('ls-mm',mm);setEl('ls-ss',ss);
+    setEl('ls-date',ds+', '+dt);
   }
   tick(); setInterval(tick,1000);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SHIFT STATE CHECK + LIVE SCREEN
+// ═══════════════════════════════════════════════════════════════
+
+// Called on page load — decides whether to show live screen or login
+function checkShiftOnLoad() {
+  google.script.run
+    .withSuccessHandler(status => {
+      if (status && status.active) {
+        S.managerName = status.managerName;
+        showLiveScreen(status);
+      }
+      // else login screen stays visible (default)
+    })
+    .withFailureHandler(() => { /* leave login screen as default */ })
+    .isShiftActive();
+}
+
+function showLoginScreen() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('start-shift-screen').classList.remove('visible');
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('live-screen').classList.remove('visible');
+}
+
+function showLiveScreen(status) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('start-shift-screen').classList.remove('visible');
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('live-screen').classList.add('visible');
+  if (status) {
+    setEl('ls-manager', status.managerName || '—');
+    if (status.shiftStart) {
+      const d = new Date(status.shiftStart);
+      setEl('ls-shift-start', p2(d.getHours()) + ':' + p2(d.getMinutes()));
+    }
+  }
+  loadLiveData();
+  startLiveRefresh();
+}
+
+function hideLiveScreen() {
+  document.getElementById('live-screen').classList.remove('visible');
+  stopLiveRefresh();
+}
+
+function startLiveRefresh() {
+  stopLiveRefresh();
+  S.liveRefreshTimer = setInterval(loadLiveData, 15000);
+}
+
+function stopLiveRefresh() {
+  if (S.liveRefreshTimer) { clearInterval(S.liveRefreshTimer); S.liveRefreshTimer = null; }
+}
+
+function loadLiveData() {
+  google.script.run
+    .withSuccessHandler(data => {
+      if (!data || !data.active) {
+        hideLiveScreen();
+        showLoginScreen();
+        return;
+      }
+      renderLiveData(data);
+    })
+    .withFailureHandler(() => {})
+    .getLiveViewData();
+}
+
+function renderLiveData(data) {
+  const s = data.stats || {};
+  setEl('ls-revenue', fmt(s.totalRevenue));
+  setEl('ls-washes',  s.totalWashes || 0);
+  setEl('ls-cash',    fmt(s.cashTotal));
+  setEl('ls-card',    fmt(s.cardTotal));
+  setEl('ls-talon',   (s.talonCount || 0) + ' / ' + fmt(s.talonValue));
+  setEl('ls-pending', (s.pendingCount || 0) + (s.pendingValue > 0 ? ' / ' + fmt(s.pendingValue) : ''));
+
+  ['Box 1','Box 2','Box 3','Box 4'].forEach((b, i) => {
+    const n = i + 1;
+    const bd = (s.boxData || {})[b] || { salary:0, washes:0 };
+    setEl('ls-b'+n+'-sal', fmt(bd.salary));
+    setEl('ls-b'+n+'-w',   bd.washes + ' რეცხ.');
+  });
+
+  const pct = Math.min(((s.totalRevenue || 0) / 1600) * 100, 100);
+  const bar = document.getElementById('ls-bonus-bar');
+  if (bar) bar.style.width = pct.toFixed(1) + '%';
+  setEl('ls-bonus-status', fmt(s.totalRevenue) + ' / 1,600₾');
+  setEl('ls-bonus-lbl', s.bonusReached
+    ? '🎯 ბარიერი გადალახულია! +50₾ ბონუსი'
+    : 'ბონუსამდე: ' + fmt(1600 - (s.totalRevenue || 0)));
+
+  if (data.allEntries) renderLiveLog(data.allEntries);
+}
+
+function renderLiveLog(entries) {
+  const tbody = document.getElementById('ls-log-tbody');
+  if (!tbody) return;
+  if (!entries.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#5A6A85;padding:24px">მობანებები ჯერ არ არის</td></tr>';
+    return;
+  }
+  const BOX_COLORS = { 'Box 1':'#3B82F6','Box 2':'#059669','Box 3':'#D97706','Box 4':'#7C3AED' };
+  tbody.innerHTML = entries.map((r, i) => {
+    const isPending = r.status === 'Pending';
+    const payDisplay = isPending ? '⏳ ტაბი' : (r.paymentType || '—');
+    const bColor = BOX_COLORS[r.box] || '#8A9BBE';
+    return `<tr class="${isPending ? 'ls-row-pending' : ''}">
+      <td style="color:#5A6A85">${i + 1}</td>
+      <td class="ls-plate">${esc(r.plateNumber)}</td>
+      <td>${esc(r.carType)}</td>
+      <td style="${r.washType==='VIP'?'color:#FFD700;font-weight:700':''}">${esc(r.washType)}</td>
+      <td><span style="color:${bColor};font-weight:700">${esc(r.box)}</span></td>
+      <td style="text-align:right;font-weight:700;color:#E2EAF4">${r.cost}₾</td>
+      <td style="color:${isPending?'#F59E0B':'#A3B8CC'}">${payDisplay}</td>
+      <td style="color:#5A6A85">${esc(r.timestamp)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── ADMIN PIN OVERLAY ──────────────────────────────────────────
+function showAdminPinOverlay() {
+  document.getElementById('admin-pin-input').value = '';
+  const err = document.getElementById('admin-pin-error');
+  err.textContent = ''; err.classList.remove('show');
+  document.getElementById('admin-pin-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('admin-pin-input').focus(), 80);
+}
+
+function hideAdminPinOverlay() {
+  document.getElementById('admin-pin-overlay').classList.remove('open');
+}
+
+function unlockAdminFromLive() {
+  const pin = document.getElementById('admin-pin-input').value.trim();
+  if (!pin) return;
+  const btn = document.getElementById('admin-pin-btn');
+  setLoad(btn, true);
+  google.script.run
+    .withSuccessHandler(res => {
+      setLoad(btn, false);
+      if (res.success) {
+        hideAdminPinOverlay();
+        hideLiveScreen();
+        S.managerName = res.managerName;
+        document.getElementById('app').classList.add('visible');
+        setEl('manager-name-display', res.managerName);
+        const d = new Date(res.shiftStart || Date.now());
+        setEl('hdr-shift-info', 'ცვლა: ' + p2(d.getHours()) + ':' + p2(d.getMinutes()));
+        initApp();
+        toast('✓ Admin View – ' + res.managerName + 'ს ცვლა', 'info');
+      } else {
+        const err = document.getElementById('admin-pin-error');
+        err.textContent = res.message; err.classList.add('show');
+      }
+    })
+    .withFailureHandler(e => {
+      setLoad(btn, false);
+      const err = document.getElementById('admin-pin-error');
+      err.textContent = e.message; err.classList.add('show');
+    })
+    .unlockAdminView(pin);
 }
 
 // ── LOGIN ─────────────────────────────────────────────────────
@@ -188,11 +356,6 @@ function bindStartShift(){
 
 // ── APP INIT ──────────────────────────────────────────────────
 function initApp(){
-  google.script.run
-    .withSuccessHandler(url=>{S.webAppUrl=url;const el=document.getElementById('live-link-btn');if(el&&url)el.href=url+'?page=live';})
-    .withFailureHandler(()=>{})
-    .getWebAppUrl();
-
   google.script.run
     .withSuccessHandler(lists=>{
       S.lists=lists;
@@ -795,11 +958,17 @@ function renderShiftModal(s){
 }
 function onAfterClose(){
   document.getElementById('summary-modal').classList.remove('open');
-  S.savedRows=[];
+  if(S.statsTimer){clearInterval(S.statsTimer);S.statsTimer=null;}
+  S.managerName=''; S.savedRows=[]; S.lists=null;
+  document.getElementById('app').classList.remove('visible');
   buildGrid([], 100);
   bindGridKeyboard();
   renderStats({totalWashes:0,cashTotal:0,cardTotal:0,talonCount:0,talonValue:0,
     pendingCount:0,pendingValue:0,vipCount:0,totalRevenue:0,bonusReached:false,boxData:{}});
+  // Shift is over — return to login
+  showLoginScreen();
+  document.getElementById('manager-name').value='';
+  document.getElementById('pin').value='';
 }
 
 // ── LOGOUT ───────────────────────────────────────────────────
@@ -810,12 +979,23 @@ function bindLogout(){
     S.managerName='';S.savedRows=[];S.lists=null;
     document.getElementById('app').classList.remove('visible');
     document.getElementById('start-shift-screen').classList.remove('visible');
-    document.getElementById('login-screen').style.display='flex';
     document.getElementById('manager-name').value='';
     document.getElementById('pin').value='';
     ['collect-modal','confirm-modal','summary-modal','edit-modal'].forEach(id=>{
       const el=document.getElementById(id);if(el)el.classList.remove('open');
     });
+    // If shift still active → live screen; else → login
+    google.script.run
+      .withSuccessHandler(status=>{
+        if(status&&status.active){
+          S.managerName=status.managerName;
+          showLiveScreen(status);
+        } else {
+          showLoginScreen();
+        }
+      })
+      .withFailureHandler(()=>showLoginScreen())
+      .isShiftActive();
   });
 }
 
