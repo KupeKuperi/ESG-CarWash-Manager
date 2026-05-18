@@ -87,6 +87,17 @@ function doPost(e) {
 function doGet(e) {
   _autoSetup();
   const page = (e && e.parameter && e.parameter.page) || 'app';
+
+  // ?page=reset  →  clear stale shift and redirect to app
+  if (page === 'reset') {
+    clearShiftState();
+    const url = ScriptApp.getService().getUrl();
+    return HtmlService.createHtmlOutput(
+      '<meta http-equiv="refresh" content="0;url=' + url + '">' +
+      '<p>Shift state cleared. <a href="' + url + '">Click here if not redirected.</a></p>'
+    );
+  }
+
   if (page === 'live') {
     return HtmlService.createTemplateFromFile('live')
       .evaluate()
@@ -116,9 +127,28 @@ function getWebAppUrl() {
 
 // ── Check if a shift is currently active ─────────────────────
 function isShiftActive() {
-  const props = PropertiesService.getScriptProperties().getProperties();
+  const sp    = PropertiesService.getScriptProperties();
+  const props = sp.getProperties();
   if (!props.currentManager) return { active: false };
+  // Auto-expire shifts older than 20 hours (stale session guard)
+  if (props.shiftStart) {
+    const hoursElapsed = (Date.now() - new Date(props.shiftStart).getTime()) / 3600000;
+    if (hoursElapsed > 20) {
+      sp.deleteProperty('currentManager');
+      sp.deleteProperty('shiftStart');
+      return { active: false };
+    }
+  }
   return { active: true, managerName: props.currentManager, shiftStart: props.shiftStart || null };
+}
+
+// ── One-time helper: clear stale shift from Properties ────────
+function clearShiftState() {
+  const sp = PropertiesService.getScriptProperties();
+  sp.deleteProperty('currentManager');
+  sp.deleteProperty('shiftStart');
+  Logger.log('Shift state cleared.');
+  return 'cleared';
 }
 
 // ── Unlock manager access during an active shift ──────────────
@@ -265,18 +295,21 @@ function addEntry(data) {
     const notes = noteParts.join(' | ');
 
     // All entries start as Pending — payment collected via Collect button
+    const payType = (data.paymentType && data.paymentType !== 'Pending') ? data.paymentType : 'Pending';
+    const status  = payType !== 'Pending' ? 'Paid' : 'Pending';
     sheet.appendRow([
       (data.plateNumber || '').toUpperCase(),
       data.carType,
       data.washType,
       parseFloat(data.cost) || 0,
-      'Pending',
+      payType,
       data.box,
       new Date(),
       notes,
-      'Pending'
+      status
     ]);
-    return { success:true };
+    const rowIndex = sheet.getLastRow() - 2; // 0-based data index
+    return { success:true, rowIndex };
   } catch(e) { return { success:false, message:e.message }; }
 }
 

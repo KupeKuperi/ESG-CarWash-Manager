@@ -102,7 +102,7 @@ const S = {
   managerName      : '',
   lists            : null,
   savedRows        : [],
-  statsTimer       : null,
+  syncTimer        : null,   // auto-save to sheet every 10s
   liveRefreshTimer : null,
   collectingRowIdx : null,
   collectPay       : null,
@@ -359,10 +359,23 @@ function initApp(){
   google.script.run
     .withSuccessHandler(lists=>{
       S.lists=lists;
-      loadAndRenderGrid(); // buildGrid() inside calls updateAll() when done
+      loadAndRenderGrid();
+      // Auto-save any filled-but-unsaved rows every 10 seconds
+      if(S.syncTimer) clearInterval(S.syncTimer);
+      S.syncTimer=setInterval(autoSyncGrid, 10000);
     })
     .withFailureHandler(e=>toast('შეცდომა: '+e.message,'error'))
     .getListsData();
+}
+
+// ── AUTO-SYNC: save all new rows with plate+cost to sheet ──────
+function autoSyncGrid(){
+  document.querySelectorAll('#wash-tbody tr').forEach(tr=>{
+    if(tr.dataset.state!=='new') return;
+    const plate=(tr.querySelector('[data-col="plate"]')?.value||'').trim().toUpperCase();
+    const cost=parseFloat(tr.querySelector('[data-col="cost"]')?.value)||0;
+    if(plate && cost>0) submitNewRow(tr, plate, {rebuild:false, toast:false});
+  });
 }
 
 // ── TAB ───────────────────────────────────────────────────────
@@ -454,8 +467,7 @@ function makeFilledRow(r, rowNum){
     <td><input data-col="loyalty"    value="${esc(note.loyalty)}" placeholder="კოდი" onchange="dirtyRow(this)" onkeydown="onRowKey(event,this)" onblur="triggerLoyalty(this)"></td>
     <td><input data-col="phone"      value="${esc(note.phone)}"   placeholder="+995..." onchange="dirtyRow(this)" onkeydown="onRowKey(event,this)"></td>
     <td class="${payTdCls}"><select data-col="payment" onchange="onPaymentChange(this)" onkeydown="onRowKey(event,this)">${payOpts(currentPay)}</select></td>
-    <td class="col-ro" style="text-align:center;font-size:11px">${esc(r.timestamp)}</td>
-    <td class="col-action"><button class="row-edit-btn" onclick="openEditFromLog(${r.rowIndex})">✏</button></td>`;
+    <td class="col-ro" style="text-align:center;font-size:11px">${esc(r.timestamp)}</td>`;
   return tr;
 }
 
@@ -476,8 +488,7 @@ function makeEmptyRow(rowNum){
     <td><input data-col="loyalty"    placeholder="ლოიალ." onkeydown="onRowKey(event,this)"></td>
     <td><input data-col="phone"      placeholder="+995..." onkeydown="onRowKey(event,this)"></td>
     <td><select data-col="payment"   onchange="onPaymentChange(this)" onkeydown="onRowKey(event,this)">${payOpts()}</select></td>
-    <td class="col-ro"></td>
-    <td class="col-action"></td>`;
+    <td class="col-ro"></td>`;
   return tr;
 }
 
@@ -596,7 +607,7 @@ function onBoxSelectChange(sel){
   dirtyRow(sel); // dirtyRow already calls updateAll()
 }
 
-// ── PAYMENT SELECT change → colour pay TD, auto-mark paid ─────
+// ── PAYMENT SELECT change → colour pay TD, save / mark paid ───
 function onPaymentChange(sel){
   const tr=sel.closest('tr');
   const td=sel.closest('td');
@@ -608,28 +619,37 @@ function onPaymentChange(sel){
   if(val==='Card')  td.classList.add('pc-card');
   if(val==='Talon') td.classList.add('pc-talon');
 
-  // Instant tracker + summary update
   updateAll();
 
-  // If this is a saved PENDING row and payment is selected → mark as Paid now
-  const rowIdx=parseInt(tr.dataset.rowIdx);
-  if(tr.dataset.state==='pending' && val && !isNaN(rowIdx)){
-    google.script.run
-      .withSuccessHandler(res=>{
-        if(res.success){
-          tr.dataset.state='paid';
-          // Row paid colour
-          tr.classList.remove('bx-1','bx-2','bx-3','bx-4');
-          const box=tr.querySelector('[data-col="box"]')?.value;
-          const bc=boxClass(box); if(bc) tr.classList.add(bc);
-          tr.classList.remove('paid-cash','paid-card','paid-talon');
-          tr.classList.add('paid-'+val.toLowerCase());
-          updateAll(); // recount from DOM — instant, no GAS round-trip
-          toast('✓ '+val+' — გადახდა მიღებულია','success');
-        }
-      })
-      .withFailureHandler(()=>{})
-      .markAsPaid(rowIdx, val);
+  if(val){
+    const plate=(tr.querySelector('[data-col="plate"]')?.value||'').trim().toUpperCase();
+    const cost=parseFloat(tr.querySelector('[data-col="cost"]')?.value)||0;
+
+    // ── NEW unsaved row: save it now with the selected payment ──
+    if(tr.dataset.state==='new' && plate && cost>0){
+      submitNewRow(tr, plate, {rebuild:false, toast:true});
+      return;
+    }
+
+    // ── SAVED PENDING row: mark as paid ─────────────────────────
+    const rowIdx=parseInt(tr.dataset.rowIdx);
+    if(tr.dataset.state==='pending' && !isNaN(rowIdx)){
+      google.script.run
+        .withSuccessHandler(res=>{
+          if(res.success){
+            tr.dataset.state='paid';
+            tr.classList.remove('bx-1','bx-2','bx-3','bx-4');
+            const box=tr.querySelector('[data-col="box"]')?.value;
+            const bc=boxClass(box); if(bc) tr.classList.add(bc);
+            tr.classList.remove('paid-cash','paid-card','paid-talon');
+            tr.classList.add('paid-'+val.toLowerCase());
+            updateAll();
+            toast('✓ '+val+' — გადახდა მიღებულია','success');
+          }
+        })
+        .withFailureHandler(()=>{})
+        .markAsPaid(rowIdx, val);
+    }
   }
 
   dirtyRow(sel);
@@ -650,17 +670,21 @@ function dirtyRow(el){ const tr=el.closest('tr'); if(tr) tr.dataset.dirty='true'
 function maybeSaveRow(tr){
   const plate=tr.querySelector('[data-col="plate"]')?.value.trim().toUpperCase();
   if(!plate) return;
-
   const state=tr.dataset.state||'new';
-
+  if(state==='saving') return; // already being saved by auto-sync
   if(state==='new'){
-    submitNewRow(tr, plate);
+    submitNewRow(tr, plate, {rebuild:true, toast:true});
   } else if(tr.dataset.dirty==='true'){
     updateExistingRow(tr);
   }
 }
 
-function submitNewRow(tr, plate){
+// opts: { rebuild, toast }
+//   rebuild=true  → full grid reload after save (Enter/Tab)
+//   rebuild=false → update row in-place, no cursor disruption (auto-sync / payment)
+function submitNewRow(tr, plate, opts){
+  const rebuild   = !opts || opts.rebuild !== false;
+  const showToast = !opts || opts.toast   !== false;
   const payVal=tr.querySelector('[data-col="payment"]')?.value||'';
   const data={
     plateNumber: plate,
@@ -673,37 +697,53 @@ function submitNewRow(tr, plate){
     paymentType: payVal||'Pending',
     status     : payVal?'Paid':'Pending'
   };
-  if(data.cost<=0){ toast('თანხა ჩაწერეთ','warning'); tr.querySelector('[data-col="cost"]').focus(); return; }
+  if(data.cost<=0){
+    if(showToast) toast('თანხა ჩაწერეთ','warning');
+    return;
+  }
 
-  // Temporarily mark to avoid double-save
   tr.dataset.state='saving';
 
   google.script.run
     .withSuccessHandler(res=>{
       if(res.success){
-        toast('⏳ '+plate+' — ტაბზე','success');
-        // Loyalty sync
+        if(rebuild){
+          if(showToast) toast('✓ '+plate+' — შენახულია','success');
+          loadAndRenderGrid();
+        } else {
+          // In-place: preserve cursor, just mark the row as saved
+          tr.dataset.state  = data.status==='Paid'?'paid':'pending';
+          tr.dataset.rowIdx = String(res.rowIndex);
+          tr.dataset.dirty  = 'false';
+          tr.classList.remove('is-empty');
+          const timeCell=tr.querySelector('.col-ro');
+          if(timeCell){const n=new Date();timeCell.textContent=p2(n.getHours())+':'+p2(n.getMinutes());}
+          if(data.status==='Paid'){
+            tr.classList.remove('paid-cash','paid-card','paid-talon');
+            tr.classList.add('paid-'+payVal.toLowerCase());
+          }
+          updateAll();
+          if(showToast) toast('✓ '+plate+' — შენახულია','success');
+        }
         if(data.loyaltyCode){
           google.script.run
             .withSuccessHandler(lr=>{if(lr&&lr.success)toast('🎫 ლოიალობა განახლდა','info');})
             .withFailureHandler(()=>{})
             .updateLoyalty(data.loyaltyCode);
         }
-        // Refresh grid (reloads from GAS) — keeps focus via next-row navigation
-        loadAndRenderGrid(); // rebuilds grid → updateAll() recalculates stats
       } else {
         tr.dataset.state='new';
-        toast('შეცდომა: '+res.message,'error');
+        if(showToast) toast('შეცდომა: '+res.message,'error');
       }
     })
-    .withFailureHandler(e=>{ tr.dataset.state='new'; toast(e.message,'error'); })
+    .withFailureHandler(e=>{ tr.dataset.state='new'; if(showToast) toast(e.message,'error'); })
     .addEntry(data);
 }
 
 function updateExistingRow(tr){
   const rowIdx=parseInt(tr.dataset.rowIdx);
   if(isNaN(rowIdx)) return;
-  const note=parseNotes(''); // existing loyalty / phone from inputs
+  const payVal=tr.querySelector('[data-col="payment"]')?.value||'';
   const data={
     plateNumber: tr.querySelector('[data-col="plate"]').value.trim(),
     carType    : tr.querySelector('[data-col="car-type"]').value,
@@ -712,12 +752,12 @@ function updateExistingRow(tr){
     cost       : parseFloat(tr.querySelector('[data-col="cost"]').value)||0,
     loyaltyCode: tr.querySelector('[data-col="loyalty"]').value.trim(),
     phone      : tr.querySelector('[data-col="phone"]').value.trim(),
-    paymentType: S.savedRows[rowIdx]?.paymentType||'Pending',
-    status     : tr.dataset.state||'pending'
+    paymentType: payVal||'Pending',
+    status     : payVal?'Paid':'Pending'
   };
   tr.dataset.dirty='false';
   google.script.run
-    .withSuccessHandler(()=>{})
+    .withSuccessHandler(()=>{updateAll();})
     .withFailureHandler(()=>{})
     .updateEntry(rowIdx, data);
 }
@@ -955,6 +995,7 @@ function renderShiftModal(s){
 }
 function onAfterClose(){
   document.getElementById('summary-modal').classList.remove('open');
+  if(S.syncTimer){clearInterval(S.syncTimer);S.syncTimer=null;}
   S.managerName=''; S.savedRows=[]; S.lists=null;
   document.getElementById('app').classList.remove('visible');
   buildGrid([], 100);
@@ -971,6 +1012,7 @@ function onAfterClose(){
 function bindLogout(){
   document.getElementById('logout-btn').addEventListener('click',()=>{
     if(!confirm('გამოსვლა?')) return;
+    if(S.syncTimer){clearInterval(S.syncTimer);S.syncTimer=null;}
     S.managerName='';S.savedRows=[];S.lists=null;
     document.getElementById('app').classList.remove('visible');
     document.getElementById('start-shift-screen').classList.remove('visible');
