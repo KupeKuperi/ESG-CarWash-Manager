@@ -409,8 +409,10 @@ function autoSyncGrid(){
   document.querySelectorAll('#wash-tbody tr').forEach(tr=>{
     if(tr.dataset.state!=='new') return;
     const plate=(tr.querySelector('[data-col="plate"]')?.value||'').trim().toUpperCase();
-    const cost=parseFloat(tr.querySelector('[data-col="cost"]')?.value)||0;
-    if(plate && cost>0) submitNewRow(tr, plate, {rebuild:false, toast:false});
+    const cost =parseFloat(tr.querySelector('[data-col="cost"]')?.value)||0;
+    if(!plate||cost<=0) return;
+    // If payment already selected, submitNewRow reads it and saves as Paid directly
+    submitNewRow(tr, plate, {rebuild:false, toast:false});
   });
 }
 
@@ -660,23 +662,25 @@ function onPaymentChange(sel){
   if(val){
     const plate=(tr.querySelector('[data-col="plate"]')?.value||'').trim().toUpperCase();
     const cost=parseFloat(tr.querySelector('[data-col="cost"]')?.value)||0;
+    const state=tr.dataset.state||'new';
 
-    // ── NEW unsaved row: save it now with the selected payment ──
-    if(tr.dataset.state==='new' && plate && cost>0){
+    // ── NEW row: save now with payment included ──────────────────
+    if(state==='new' && plate && cost>0){
       submitNewRow(tr, plate, {rebuild:false, toast:true});
       return;
     }
 
+    // ── SAVING (auto-sync in flight): payment will be caught when
+    //    the GAS call returns in submitNewRow's success handler ───
+    if(state==='saving') return;
+
     // ── SAVED PENDING row: mark as paid ─────────────────────────
     const rowIdx=parseInt(tr.dataset.rowIdx);
-    if(tr.dataset.state==='pending' && !isNaN(rowIdx)){
+    if(state==='pending' && !isNaN(rowIdx)){
       google.script.run
         .withSuccessHandler(res=>{
-          if(res.success){
+          if(res&&res.success){
             tr.dataset.state='paid';
-            tr.classList.remove('bx-1','bx-2','bx-3','bx-4');
-            const box=tr.querySelector('[data-col="box"]')?.value;
-            const bc=boxClass(box); if(bc) tr.classList.add(bc);
             tr.classList.remove('paid-cash','paid-card','paid-talon');
             tr.classList.add('paid-'+val.toLowerCase());
             updateAll();
@@ -747,19 +751,49 @@ function submitNewRow(tr, plate, opts){
           if(showToast) toast('✓ '+plate+' — შენახულია','success');
           loadAndRenderGrid();
         } else {
-          // In-place: preserve cursor, just mark the row as saved
-          tr.dataset.state  = data.status==='Paid'?'paid':'pending';
+          // In-place: preserve cursor, mark the row as saved
           tr.dataset.rowIdx = String(res.rowIndex);
           tr.dataset.dirty  = 'false';
           tr.classList.remove('is-empty');
           const timeCell=tr.querySelector('.col-ro');
           if(timeCell){const n=new Date();timeCell.textContent=p2(n.getHours())+':'+p2(n.getMinutes());}
+
+          // Read the LIVE payment value — may differ from payVal if user
+          // selected a payment while this async GAS call was in flight
+          const livePayVal = tr.querySelector('[data-col="payment"]')?.value||'';
+
           if(data.status==='Paid'){
+            // Was saved directly with payment (normal path)
+            tr.dataset.state='paid';
             tr.classList.remove('paid-cash','paid-card','paid-talon');
             tr.classList.add('paid-'+payVal.toLowerCase());
+            updateAll();
+            if(showToast) toast('✓ '+plate+' — შენახულია','success');
+          } else if(livePayVal){
+            // Race condition: saved as Pending, but payment was selected
+            // while the GAS call was in flight → mark as paid now
+            tr.dataset.state='pending'; // will flip to 'paid' below
+            google.script.run
+              .withSuccessHandler(r=>{
+                if(r&&r.success){
+                  tr.dataset.state='paid';
+                  tr.classList.remove('paid-cash','paid-card','paid-talon');
+                  tr.classList.add('paid-'+livePayVal.toLowerCase());
+                  const ptd=tr.querySelector('[data-col="payment"]')?.closest('td');
+                  if(ptd){ptd.classList.remove('pc-cash','pc-card','pc-talon');
+                          ptd.classList.add('pc-'+livePayVal.toLowerCase());}
+                  updateAll();
+                  if(showToast) toast('✓ '+plate+' — '+livePayVal+' — შენახულია','success');
+                }
+              })
+              .withFailureHandler(()=>{})
+              .markAsPaid(res.rowIndex, livePayVal);
+          } else {
+            // Saved as Pending, no payment yet
+            tr.dataset.state='pending';
+            updateAll();
+            if(showToast) toast('✓ '+plate+' — ტაბში','success');
           }
-          updateAll();
-          if(showToast) toast('✓ '+plate+' — შენახულია','success');
         }
         if(data.loyaltyCode){
           google.script.run
