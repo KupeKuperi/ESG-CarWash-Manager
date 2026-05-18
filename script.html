@@ -304,6 +304,42 @@ function unlockAdminFromLive() {
     .unlockAdminView(pin);
 }
 
+// ── CLOSE SHIFT FROM LIVE SCREEN ─────────────────────────────
+function closeLiveShift(){
+  if(!confirm('ცვლა დაიხუროს? ყველა მონაცემი Summary-ში ჩაიწერება.')) return;
+  const managerName = S.managerName
+    || document.getElementById('ls-manager')?.textContent
+    || '—';
+  const btn = document.getElementById('live-close-btn');
+  setLoad(btn, true);
+
+  google.script.run
+    .withSuccessHandler(res=>{
+      if(res.success){
+        // Normal close — archived successfully
+        setLoad(btn, false);
+        stopLiveRefresh();
+        hideLiveScreen();
+        showLoginScreen();
+        toast('✓ ცვლა დაიხურა და დაარქივდა','success');
+      } else {
+        // No entries in sheet (stuck/empty shift) → just clear the state
+        google.script.run
+          .withSuccessHandler(()=>{
+            setLoad(btn, false);
+            stopLiveRefresh();
+            hideLiveScreen();
+            showLoginScreen();
+            toast('ცვლა გადატვირთულია','info');
+          })
+          .withFailureHandler(e=>{setLoad(btn,false);toast(e.message,'error');})
+          .clearShiftState();
+      }
+    })
+    .withFailureHandler(e=>{setLoad(btn,false);toast(e.message,'error');})
+    .closeShift(managerName);
+}
+
 // ── LOGIN ─────────────────────────────────────────────────────
 function bindLogin() {
   const form=document.getElementById('login-form');

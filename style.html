@@ -654,8 +654,11 @@ select{cursor:pointer;appearance:none;
 .ls-log-table tbody tr.ls-row-pending td{background:rgba(245,158,11,.04)}
 .ls-plate{font-family:'Courier New',monospace;font-weight:700;letter-spacing:.5px}
 
-/* ── Floating Admin button ── */
-.ls-admin-btn{position:fixed;bottom:24px;right:24px;z-index:960;
+/* ── Floating button row ── */
+.ls-float-btns{position:fixed;bottom:24px;right:24px;z-index:960;
+  display:flex;align-items:center;gap:10px}
+
+.ls-admin-btn{
   padding:10px 22px;
   background:rgba(0,140,207,.12);border:1px solid rgba(0,140,207,.35);
   border-radius:22px;color:#008CCF;font-size:13px;font-weight:700;
@@ -663,6 +666,16 @@ select{cursor:pointer;appearance:none;
   backdrop-filter:blur(6px)}
 .ls-admin-btn:hover{background:rgba(0,140,207,.28);border-color:#008CCF;
   box-shadow:0 4px 20px rgba(0,140,207,.35);transform:translateY(-1px)}
+
+.ls-close-shift-btn{
+  padding:10px 22px;
+  background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.4);
+  border-radius:22px;color:#F87171;font-size:13px;font-weight:700;
+  cursor:pointer;transition:all .2s ease;font-family:var(--font);
+  backdrop-filter:blur(6px)}
+.ls-close-shift-btn:hover{background:rgba(220,38,38,.28);border-color:#DC2626;
+  box-shadow:0 4px 20px rgba(220,38,38,.3);transform:translateY(-1px)}
+.ls-close-shift-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
 
 /* ============================================================
    LIVE VIEW PAGE  (unchanged dark theme)
