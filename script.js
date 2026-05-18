@@ -673,9 +673,9 @@ function onPaymentChange(sel){
     //    the GAS call returns in submitNewRow's success handler ───
     if(state==='saving') return;
 
-    // ── SAVED PENDING row: mark as paid ─────────────────────────
+    // ── SAVED row (pending OR already paid): update payment in sheet ──
     const rowIdx=parseInt(tr.dataset.rowIdx);
-    if(state==='pending' && !isNaN(rowIdx)){
+    if((state==='pending'||state==='paid') && !isNaN(rowIdx)){
       google.script.run
         .withSuccessHandler(res=>{
           if(res&&res.success){
@@ -683,7 +683,7 @@ function onPaymentChange(sel){
             tr.classList.remove('paid-cash','paid-card','paid-talon');
             tr.classList.add('paid-'+val.toLowerCase());
             updateAll();
-            toast('✓ '+val+' — გადახდა მიღებულია','success');
+            toast('✓ '+val+' — '+(state==='paid'?'განახლდა':'გადახდა მიღებულია'),'success');
           }
         })
         .withFailureHandler(()=>{})
