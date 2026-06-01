@@ -703,7 +703,7 @@ function onEmptyPlateInput(input){
   const val=input.value.trim();
   if(val){
     tr.classList.remove('is-empty');
-    autoPrice(tr);
+    // autoPrice removed — manager types cost manually
   } else {
     tr.classList.add('is-empty');
     tr.classList.remove('bx-1','bx-2','bx-3','bx-4');
