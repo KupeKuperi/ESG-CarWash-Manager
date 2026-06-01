@@ -520,14 +520,14 @@ function makeFilledRow(r, rowNum){
 
   tr.innerHTML=`
     <td class="col-num">${rowNum}</td>
-    <td><input data-col="plate"     value="${esc(r.plateNumber)}" style="text-transform:uppercase;font-weight:600" onchange="dirtyRow(this)" onkeydown="onRowKey(event,this)"></td>
-    <td><select data-col="car-type"  onchange="onBoxOrTypeChange(this)" onkeydown="onRowKey(event,this)">${carOpts(r.carType)}</select></td>
-    <td class="${isVIP?'vip-cell':''}"><select data-col="wash-type" onchange="onBoxOrTypeChange(this)" onkeydown="onRowKey(event,this)">${washOpts(r.washType)}</select></td>
-    <td class="${boxTdCls}"><select data-col="box" onchange="onBoxSelectChange(this)" onkeydown="onRowKey(event,this)">${boxOpts(r.box)}</select></td>
-    <td><input data-col="cost"       value="${r.cost}" type="number" min="0" step="1" onchange="dirtyRow(this)" oninput="updateAll()" onkeydown="onRowKey(event,this)"></td>
-    <td class="${payTdCls}"><select data-col="payment" onchange="onPaymentChange(this)" onkeydown="onRowKey(event,this)">${payOpts(currentPay)}</select></td>
-    <td><input data-col="loyalty"    value="${esc(note.loyalty)}" placeholder="კოდი" onchange="dirtyRow(this)" onkeydown="onRowKey(event,this)" onblur="triggerLoyalty(this)"></td>
-    <td><input data-col="phone"      value="${esc(note.phone)}"   placeholder="+995..." onchange="dirtyRow(this)" onkeydown="onRowKey(event,this)"></td>
+    <td tabindex="-1"><input data-col="plate"     value="${esc(r.plateNumber)}" style="text-transform:uppercase;font-weight:600" onchange="dirtyRow(this)"></td>
+    <td tabindex="-1"><select data-col="car-type"  onchange="onBoxOrTypeChange(this)">${carOpts(r.carType)}</select></td>
+    <td tabindex="-1" class="${isVIP?'vip-cell':''}"><select data-col="wash-type" onchange="onBoxOrTypeChange(this)">${washOpts(r.washType)}</select></td>
+    <td tabindex="-1" class="${boxTdCls}"><select data-col="box" onchange="onBoxSelectChange(this)">${boxOpts(r.box)}</select></td>
+    <td tabindex="-1"><input data-col="cost"       value="${r.cost}" type="number" min="0" step="1" onchange="dirtyRow(this)" oninput="updateAll()"></td>
+    <td tabindex="-1" class="${payTdCls}"><select data-col="payment" onchange="onPaymentChange(this)">${payOpts(currentPay)}</select></td>
+    <td tabindex="-1"><input data-col="loyalty"    value="${esc(note.loyalty)}" placeholder="კოდი" onchange="dirtyRow(this)" onblur="triggerLoyalty(this)"></td>
+    <td tabindex="-1"><input data-col="phone"      value="${esc(note.phone)}"   placeholder="+995..." onchange="dirtyRow(this)"></td>
     <td class="col-ro" style="text-align:center;font-size:11px">${esc(r.timestamp)}</td>`;
   return tr;
 }
@@ -540,49 +540,151 @@ function makeEmptyRow(rowNum){
   tr.dataset.dirty='false';
   tr.innerHTML=`
     <td class="col-num" style="color:#C9CDD4">${rowNum}</td>
-    <td><input data-col="plate"     placeholder="AA-000-BB" style="text-transform:uppercase" oninput="onEmptyPlateInput(this)" onkeydown="onRowKey(event,this)"></td>
-    <td><select data-col="car-type"  onchange="onBoxOrTypeChange(this)" onkeydown="onRowKey(event,this)">${carOpts()}</select></td>
-    <td><select data-col="wash-type" onchange="onBoxOrTypeChange(this)" onkeydown="onRowKey(event,this)">${washOpts()}</select></td>
-    <td><select data-col="box"       onchange="onBoxSelectChange(this)" onkeydown="onRowKey(event,this)">${boxOpts()}</select></td>
-    <td><input data-col="cost"       placeholder="0" type="number" min="0" step="1" oninput="updateAll()" onkeydown="onRowKey(event,this)"></td>
-    <td><select data-col="payment"   onchange="onPaymentChange(this)" onkeydown="onRowKey(event,this)">${payOpts()}</select></td>
-    <td><input data-col="loyalty"    placeholder="ლოიალ." onkeydown="onRowKey(event,this)"></td>
-    <td><input data-col="phone"      placeholder="+995..." onkeydown="onRowKey(event,this)"></td>
+    <td tabindex="-1"><input data-col="plate"     placeholder="AA-000-BB" style="text-transform:uppercase" oninput="onEmptyPlateInput(this)"></td>
+    <td tabindex="-1"><select data-col="car-type"  onchange="onBoxOrTypeChange(this)">${carOpts()}</select></td>
+    <td tabindex="-1"><select data-col="wash-type" onchange="onBoxOrTypeChange(this)">${washOpts()}</select></td>
+    <td tabindex="-1"><select data-col="box"       onchange="onBoxSelectChange(this)">${boxOpts()}</select></td>
+    <td tabindex="-1"><input data-col="cost"       placeholder="0" type="number" min="0" step="1" oninput="updateAll()"></td>
+    <td tabindex="-1"><select data-col="payment"   onchange="onPaymentChange(this)">${payOpts()}</select></td>
+    <td tabindex="-1"><input data-col="loyalty"    placeholder="ლოიალ."></td>
+    <td tabindex="-1"><input data-col="phone"      placeholder="+995..."></td>
     <td class="col-ro"></td>`;
   return tr;
 }
 
-// ── KEYBOARD NAVIGATION ───────────────────────────────────────
+// ── KEYBOARD NAVIGATION  (Excel-style: arrows navigate, Enter = edit mode) ──
 function bindGridKeyboard(){
   const tbody=document.getElementById('wash-tbody');
   if(!tbody) return;
   tbody.removeEventListener('keydown', _gridKeyHandler);
   tbody.addEventListener('keydown', _gridKeyHandler);
 }
+
 function _gridKeyHandler(e){
   const target=e.target;
-  if(!target.matches('input,select')) return;
-  if(e.key==='Tab'||e.key==='Enter'||e.key==='ArrowDown'||e.key==='ArrowUp') onRowKey(e, target);
-}
-function onRowKey(e, el){
-  if(!['Tab','Enter','ArrowDown','ArrowUp'].includes(e.key)) return;
-  const tr=el.closest('tr'), col=el.dataset.col;
-  if(e.key==='ArrowDown'){ e.preventDefault(); moveToRow(tr,'next',col); return; }
-  if(e.key==='ArrowUp'){   e.preventDefault(); moveToRow(tr,'prev',col); return; }
-  if(e.key==='Enter'){ e.preventDefault(); maybeSaveRow(tr); moveToRow(tr,'next','plate'); return; }
-  if(e.key==='Tab'){
+  const tr=target.closest('tr');
+  if(!tr) return;
+
+  // ════ EDIT MODE — input or select has focus ════════════════
+  if(target.matches('input,select')){
+    const col=target.dataset.col;
     const idx=ECOLS.indexOf(col);
-    if(!e.shiftKey){
-      if(idx<ECOLS.length-1){ e.preventDefault(); focusCol(tr,ECOLS[idx+1]); }
-      else { e.preventDefault(); maybeSaveRow(tr); moveToRow(tr,'next','plate'); }
-    } else {
-      if(idx>0){ e.preventDefault(); focusCol(tr,ECOLS[idx-1]); }
-      else { e.preventDefault(); moveToRow(tr,'prev','phone'); }
+
+    switch(e.key){
+      case 'Escape':
+        e.preventDefault();
+        target.blur();
+        target.closest('td')?.focus(); // back to nav mode
+        return;
+      case 'ArrowUp':
+        e.preventDefault();
+        { const prev=tr.previousElementSibling; if(prev) navFocus(prev,col); }
+        return;
+      case 'ArrowDown':
+        e.preventDefault();
+        { const next=tr.nextElementSibling; if(next) navFocus(next,col); }
+        return;
+      case 'Enter':
+        e.preventDefault();
+        maybeSaveRow(tr);
+        { const next=tr.nextElementSibling; if(next) navFocus(next,col); }
+        return;
+      case 'ArrowLeft':
+        // Selects: always go left; inputs: only at cursor position 0
+        if(target.tagName==='SELECT'||(target.selectionStart===0&&target.selectionEnd===0)){
+          e.preventDefault();
+          if(idx>0) navFocus(tr,ECOLS[idx-1]);
+        }
+        return;
+      case 'ArrowRight':
+        // Selects: always go right; inputs: only at cursor end
+        if(target.tagName==='SELECT'||(target.selectionStart===target.value.length&&target.selectionEnd===target.value.length)){
+          e.preventDefault();
+          if(idx<ECOLS.length-1) navFocus(tr,ECOLS[idx+1]);
+        }
+        return;
+      case 'Tab':
+        e.preventDefault();
+        if(!e.shiftKey){
+          if(idx<ECOLS.length-1) editFocus(tr,ECOLS[idx+1]);
+          else{ maybeSaveRow(tr); const next=tr.nextElementSibling; if(next) navFocus(next,ECOLS[0]); }
+        } else {
+          if(idx>0) editFocus(tr,ECOLS[idx-1]);
+          else{ const prev=tr.previousElementSibling; if(prev) navFocus(prev,ECOLS[ECOLS.length-1]); }
+        }
+        return;
+    }
+    return;
+  }
+
+  // ════ NAV MODE — TD itself has focus ══════════════════════
+  if(target.tagName==='TD'){
+    const navEl=target.querySelector('input,select');
+    if(!navEl) return;
+    const col=navEl.dataset.col;
+    const idx=ECOLS.indexOf(col);
+
+    switch(e.key){
+      case 'Enter':
+      case 'F2':
+        e.preventDefault();
+        navEl.focus();
+        if(navEl.tagName==='INPUT') navEl.select();
+        return;
+      case 'ArrowRight':
+        e.preventDefault();
+        if(idx<ECOLS.length-1) navFocus(tr,ECOLS[idx+1]);
+        else{ const next=tr.nextElementSibling; if(next) navFocus(next,ECOLS[0]); }
+        return;
+      case 'ArrowLeft':
+        e.preventDefault();
+        if(idx>0) navFocus(tr,ECOLS[idx-1]);
+        else{ const prev=tr.previousElementSibling; if(prev) navFocus(prev,ECOLS[ECOLS.length-1]); }
+        return;
+      case 'ArrowDown':
+        e.preventDefault();
+        { const next=tr.nextElementSibling; if(next) navFocus(next,col); }
+        return;
+      case 'ArrowUp':
+        e.preventDefault();
+        { const prev=tr.previousElementSibling; if(prev) navFocus(prev,col); }
+        return;
+      case 'Tab':
+        e.preventDefault();
+        if(!e.shiftKey){
+          if(idx<ECOLS.length-1) navFocus(tr,ECOLS[idx+1]);
+          else{ const next=tr.nextElementSibling; if(next) navFocus(next,ECOLS[0]); }
+        } else {
+          if(idx>0) navFocus(tr,ECOLS[idx-1]);
+          else{ const prev=tr.previousElementSibling; if(prev) navFocus(prev,ECOLS[ECOLS.length-1]); }
+        }
+        return;
+      default:
+        // Typing any printable char in nav mode → enter edit mode
+        if(e.key.length===1&&!e.ctrlKey&&!e.metaKey){
+          navEl.focus();
+          if(navEl.tagName==='INPUT') navEl.select();
+        }
     }
   }
 }
-function focusCol(tr, col){ const el=tr.querySelector(`[data-col="${col}"]`); if(el){el.focus();if(el.tagName==='INPUT')el.select();} }
-function moveToRow(tr, dir, col){ const next=dir==='next'?tr.nextElementSibling:tr.previousElementSibling; if(next) focusCol(next, col); }
+
+// NAV mode: focus the TD (selection box, no cursor in input)
+function navFocus(tr, col){
+  const el=tr.querySelector(`[data-col="${col}"]`);
+  const td=el?.closest('td');
+  if(td){ td.focus(); }
+}
+
+// EDIT mode: focus the input/select directly
+function editFocus(tr, col){
+  const el=tr.querySelector(`[data-col="${col}"]`);
+  if(el){ el.focus(); if(el.tagName==='INPUT') el.select(); }
+}
+
+// Legacy aliases used by maybeSaveRow (kept for compatibility)
+function focusCol(tr,col){ editFocus(tr,col); }
+function moveToRow(tr,dir,col){ const n=dir==='next'?tr.nextElementSibling:tr.previousElementSibling; if(n) navFocus(n,col); }
 
 // ── EMPTY ROW: plate typed ────────────────────────────────────
 function onEmptyPlateInput(input){

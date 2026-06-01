@@ -330,10 +330,15 @@ select{cursor:pointer;appearance:none;
 .egrid tbody tr.paid-card td:not(.col-num){background:#F0F7FF}
 .egrid tbody tr.paid-talon td:not(.col-num){background:#FFFDF5}
 
-/* ── Cell focus: Excel blue selection box ── */
+/* ── EDIT MODE: cell is active (blue border) ── */
 .egrid tbody td:focus-within:not(.col-num):not(.col-ro){
   outline:2px solid var(--esg-blue);outline-offset:-1px;
   position:relative;z-index:3;background:var(--surface)!important}
+
+/* ── NAV MODE: TD selected but not editing (amber border) ── */
+.egrid tbody td:focus:not(:focus-within):not(.col-num):not(.col-ro){
+  outline:2.5px solid #F59E0B;outline-offset:-1px;
+  position:relative;z-index:4;background:#FFFBEB!important}
 
 /* ── Inputs & selects inside cells ── */
 .egrid td input,.egrid td select{
