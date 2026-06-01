@@ -16,13 +16,14 @@ const GEO = {
 };
 
 // Editable columns in Tab order (payment now included)
-const ECOLS = ['plate','car-type','wash-type','box','cost','loyalty','phone','payment'];
+const ECOLS = ['plate','car-type','wash-type','box','cost','payment','loyalty','phone'];
 const EMPTY_ROWS_BUFFER = 100;
 
 // ── INSTANT LOCAL STATS (reads current DOM grid, no GAS) ──────
 function calcLocalStats() {
   const rows = document.querySelectorAll('#wash-tbody tr');
   let totalWashes=0, cashTotal=0, cardTotal=0, talonCount=0, talonValue=0;
+  let renoCount=0, renoValue=0;
   let pendingCount=0, pendingValue=0, vipCount=0, managerVIPBonus=0;
   const boxData={
     'Box 1':{salary:0,washes:0},'Box 2':{salary:0,washes:0},
@@ -40,7 +41,7 @@ function calcLocalStats() {
     const isVIP   = washType==='VIP';
 
     totalWashes++;
-    if(isVIP){ vipCount++; managerVIPBonus+=10; }
+    if(isVIP){ vipCount++; managerVIPBonus+=cost*0.10; } // 10% of VIP cost
 
     const earning = cost*(isVIP?0.40:0.35);
     if(boxData[box]){ boxData[box].salary+=earning; boxData[box].washes++; }
@@ -49,16 +50,19 @@ function calcLocalStats() {
     else if(payment==='Cash')  cashTotal +=cost;
     else if(payment==='Card')  cardTotal +=cost;
     else if(payment==='Talon'){ talonCount++; talonValue+=cost; }
+    else if(payment==='Reno') { renoCount++;  renoValue +=cost; }
   });
 
-  const totalRevenue=cashTotal+cardTotal+talonValue;
-  const bonusReached=totalRevenue>=1600;
-  const dailyBonus=bonusReached?50:0;
+  const totalRevenue=cashTotal+cardTotal+talonValue+renoValue;
+  const bonusReached =totalRevenue>=1600;
+  const bonusReached2=totalRevenue>=2000;
+  const dailyBonus=(bonusReached?50:0)+(bonusReached2?50:0);
   const managerTotal=100+managerVIPBonus+dailyBonus;
 
   return { totalWashes, cashTotal, cardTotal, talonCount, talonValue,
+           renoCount, renoValue,
            pendingCount, pendingValue, vipCount, totalRevenue,
-           managerVIPBonus, dailyBonus, managerTotal, bonusReached, boxData };
+           managerVIPBonus, dailyBonus, managerTotal, bonusReached, bonusReached2, boxData };
 }
 
 // ── RENDER SUMMARY FROM ANY STATS OBJECT (local or GAS) ───────
@@ -67,7 +71,8 @@ function renderSummaryFromStats(s){
   setEl('sv-washes',  s.totalWashes);
   setEl('sv-cash',    fmt(s.cashTotal));
   setEl('sv-card',    fmt(s.cardTotal));
-  setEl('sv-talon',   s.talonCount+' / '+fmt(s.talonValue));
+  setEl('sv-talon',   (s.talonCount||0)+' / '+fmt(s.talonValue));
+  setEl('sv-reno',    (s.renoCount||0)+' / '+fmt(s.renoValue));
   setEl('sv-pending', s.pendingCount+' / '+fmt(s.pendingValue));
   ['Box 1','Box 2','Box 3','Box 4'].forEach((b,i)=>{
     const n=i+1, bd=(s.boxData||{})[b]||{salary:0,washes:0};
@@ -76,15 +81,19 @@ function renderSummaryFromStats(s){
   });
   setEl('sv-mgr-base',  '100.00₾');
   setEl('sv-mgr-vip',   fmt(s.managerVIPBonus||0));
-  setEl('sv-mgr-bonus', s.bonusReached?'+50.00₾ ✓':'0.00₾');
+  const bonus=s.dailyBonus||0;
+  setEl('sv-mgr-bonus', bonus>0?'+'+fmt(bonus)+(s.bonusReached2?' ✓✓':' ✓'):'0.00₾');
   setEl('sv-mgr-total', fmt(s.managerTotal||0));
-  const pct=Math.min(((s.totalRevenue||0)/1600)*100,100);
+  const pct=Math.min(((s.totalRevenue||0)/2000)*100,100);
   const bar=document.getElementById('sv-bonus-bar');
   if(bar) bar.style.width=pct.toFixed(1)+'%';
-  setEl('sv-bonus-status',fmt(s.totalRevenue)+' / 1,600₾');
-  setEl('sv-bonus-lbl', s.bonusReached
-    ?'🎯 ბარიერი გადალახულია! +50₾ ბონუსი'
-    :'ბონუსამდე: '+fmt(1600-(s.totalRevenue||0)));
+  setEl('sv-bonus-status',fmt(s.totalRevenue)+' / 2,000₾');
+  const rev=s.totalRevenue||0;
+  setEl('sv-bonus-lbl', s.bonusReached2
+    ?'🎯🎯 2,000₾ გადალახულია! +100₾ ბონუსი'
+    :s.bonusReached
+    ?'🎯 1,600₾ ✓  ·  2,000₾-მდე: '+fmt(2000-rev)
+    :'ბონუსამდე (1,600₾): '+fmt(1600-rev));
 }
 
 // ── MASTER UPDATE — called on every cell change ────────────────
@@ -225,13 +234,17 @@ function renderLiveData(data) {
     setEl('ls-b'+n+'-w',   bd.washes + ' რეცხ.');
   });
 
-  const pct = Math.min(((s.totalRevenue || 0) / 1600) * 100, 100);
+  setEl('ls-reno', (s.renoCount||0)+(s.renoValue>0?' / '+fmt(s.renoValue):''));
+  const pct = Math.min(((s.totalRevenue || 0) / 2000) * 100, 100);
   const bar = document.getElementById('ls-bonus-bar');
   if (bar) bar.style.width = pct.toFixed(1) + '%';
-  setEl('ls-bonus-status', fmt(s.totalRevenue) + ' / 1,600₾');
-  setEl('ls-bonus-lbl', s.bonusReached
-    ? '🎯 ბარიერი გადალახულია! +50₾ ბონუსი'
-    : 'ბონუსამდე: ' + fmt(1600 - (s.totalRevenue || 0)));
+  setEl('ls-bonus-status', fmt(s.totalRevenue) + ' / 2,000₾');
+  const rev = s.totalRevenue || 0;
+  setEl('ls-bonus-lbl', s.bonusReached2
+    ? '🎯🎯 2,000₾ გადალახულია! +100₾ ბონუსი'
+    : s.bonusReached
+    ? '🎯 1,600₾ ✓  ·  2,000₾-მდე: ' + fmt(2000 - rev)
+    : 'ბონუსამდე: ' + fmt(1600 - rev));
 
   renderScheduledWashes(data.scheduledWashes || []);
   if (data.allEntries) renderLiveLog(data.allEntries);
@@ -480,15 +493,19 @@ function initApp(){
     .getListsData();
 }
 
-// ── AUTO-SYNC: save all new rows with plate+cost to sheet ──────
+// ── AUTO-SYNC: save new rows + re-save dirty saved rows (catches box changes etc.) ──
 function autoSyncGrid(){
   document.querySelectorAll('#wash-tbody tr').forEach(tr=>{
-    if(tr.dataset.state!=='new') return;
-    const plate=(tr.querySelector('[data-col="plate"]')?.value||'').trim().toUpperCase();
-    const cost =parseFloat(tr.querySelector('[data-col="cost"]')?.value)||0;
-    if(!plate||cost<=0) return;
-    // If payment already selected, submitNewRow reads it and saves as Paid directly
-    submitNewRow(tr, plate, {rebuild:false, toast:false});
+    if(tr.dataset.state==='new'){
+      const plate=(tr.querySelector('[data-col="plate"]')?.value||'').trim().toUpperCase();
+      const cost =parseFloat(tr.querySelector('[data-col="cost"]')?.value)||0;
+      if(!plate||cost<=0) return;
+      submitNewRow(tr, plate, {rebuild:false, toast:false});
+    } else if((tr.dataset.state==='pending'||tr.dataset.state==='paid')
+               && tr.dataset.dirty==='true'){
+      // Re-save rows where box/car-type/etc changed after initial save
+      updateExistingRow(tr);
+    }
   });
 }
 
@@ -578,9 +595,9 @@ function makeFilledRow(r, rowNum){
     <td class="${isVIP?'vip-cell':''}"><select data-col="wash-type" onchange="onBoxOrTypeChange(this)" onkeydown="onRowKey(event,this)">${washOpts(r.washType)}</select></td>
     <td class="${boxTdCls}"><select data-col="box" onchange="onBoxSelectChange(this)" onkeydown="onRowKey(event,this)">${boxOpts(r.box)}</select></td>
     <td><input data-col="cost"       value="${r.cost}" type="number" min="0" step="1" onchange="dirtyRow(this)" oninput="updateAll()" onkeydown="onRowKey(event,this)"></td>
+    <td class="${payTdCls}"><select data-col="payment" onchange="onPaymentChange(this)" onkeydown="onRowKey(event,this)">${payOpts(currentPay)}</select></td>
     <td><input data-col="loyalty"    value="${esc(note.loyalty)}" placeholder="კოდი" onchange="dirtyRow(this)" onkeydown="onRowKey(event,this)" onblur="triggerLoyalty(this)"></td>
     <td><input data-col="phone"      value="${esc(note.phone)}"   placeholder="+995..." onchange="dirtyRow(this)" onkeydown="onRowKey(event,this)"></td>
-    <td class="${payTdCls}"><select data-col="payment" onchange="onPaymentChange(this)" onkeydown="onRowKey(event,this)">${payOpts(currentPay)}</select></td>
     <td class="col-ro" style="text-align:center;font-size:11px">${esc(r.timestamp)}</td>`;
   return tr;
 }
@@ -599,9 +616,9 @@ function makeEmptyRow(rowNum){
     <td><select data-col="wash-type" onchange="onBoxOrTypeChange(this)" onkeydown="onRowKey(event,this)">${washOpts()}</select></td>
     <td><select data-col="box"       onchange="onBoxSelectChange(this)" onkeydown="onRowKey(event,this)">${boxOpts()}</select></td>
     <td><input data-col="cost"       placeholder="0" type="number" min="0" step="1" oninput="updateAll()" onkeydown="onRowKey(event,this)"></td>
+    <td><select data-col="payment"   onchange="onPaymentChange(this)" onkeydown="onRowKey(event,this)">${payOpts()}</select></td>
     <td><input data-col="loyalty"    placeholder="ლოიალ." onkeydown="onRowKey(event,this)"></td>
     <td><input data-col="phone"      placeholder="+995..." onkeydown="onRowKey(event,this)"></td>
-    <td><select data-col="payment"   onchange="onPaymentChange(this)" onkeydown="onRowKey(event,this)">${payOpts()}</select></td>
     <td class="col-ro"></td>`;
   return tr;
 }
@@ -697,7 +714,7 @@ function onEmptyPlateInput(input){
 // ── CAR TYPE / WASH TYPE change → auto-price + VIP tint ──────
 function onBoxOrTypeChange(sel){
   const tr=sel.closest('tr');
-  autoPrice(tr);
+  // autoPrice removed — manager types cost manually
   if(sel.dataset.col==='wash-type'){
     const td=sel.closest('td');
     sel.value==='VIP'?td.classList.add('vip-cell'):td.classList.remove('vip-cell');
@@ -717,7 +734,7 @@ function onBoxSelectChange(sel){
   // Row background tint
   tr.classList.remove('bx-1','bx-2','bx-3','bx-4');
   if(n>=1&&n<=4) tr.classList.add('bx-'+n);
-  autoPrice(tr);
+  // autoPrice removed — manager types cost manually
   dirtyRow(sel); // dirtyRow already calls updateAll()
 }
 
@@ -728,10 +745,11 @@ function onPaymentChange(sel){
   const val=sel.value;
 
   // Colour the payment TD
-  td.classList.remove('pc-cash','pc-card','pc-talon');
+  td.classList.remove('pc-cash','pc-card','pc-talon','pc-reno');
   if(val==='Cash')  td.classList.add('pc-cash');
   if(val==='Card')  td.classList.add('pc-card');
   if(val==='Talon') td.classList.add('pc-talon');
+  if(val==='Reno')  td.classList.add('pc-reno');
 
   updateAll();
 
@@ -757,7 +775,7 @@ function onPaymentChange(sel){
         .withSuccessHandler(res=>{
           if(res&&res.success){
             tr.dataset.state='paid';
-            tr.classList.remove('paid-cash','paid-card','paid-talon');
+            tr.classList.remove('paid-cash','paid-card','paid-talon','paid-reno');
             tr.classList.add('paid-'+val.toLowerCase());
             updateAll();
             toast('✓ '+val+' — '+(state==='paid'?'განახლდა':'გადახდა მიღებულია'),'success');
@@ -841,7 +859,7 @@ function submitNewRow(tr, plate, opts){
           if(data.status==='Paid'){
             // Was saved directly with payment (normal path)
             tr.dataset.state='paid';
-            tr.classList.remove('paid-cash','paid-card','paid-talon');
+            tr.classList.remove('paid-cash','paid-card','paid-talon','paid-reno');
             tr.classList.add('paid-'+payVal.toLowerCase());
             updateAll();
             if(showToast) toast('✓ '+plate+' — შენახულია','success');
@@ -853,7 +871,7 @@ function submitNewRow(tr, plate, opts){
               .withSuccessHandler(r=>{
                 if(r&&r.success){
                   tr.dataset.state='paid';
-                  tr.classList.remove('paid-cash','paid-card','paid-talon');
+                  tr.classList.remove('paid-cash','paid-card','paid-talon','paid-reno');
                   tr.classList.add('paid-'+livePayVal.toLowerCase());
                   const ptd=tr.querySelector('[data-col="payment"]')?.closest('td');
                   if(ptd){ptd.classList.remove('pc-cash','pc-card','pc-talon');
@@ -929,7 +947,7 @@ function boxOpts(sel){
   return `<option value="">—</option>`+BOXES.map(v=>`<option${v===sel?' selected':''}>${v}</option>`).join('');
 }
 function payOpts(sel){
-  const pays=['Cash','Card','Talon'];
+  const pays=['Cash','Card','Talon','Reno'];
   return `<option value="">—</option>`+pays.map(v=>`<option${v===sel?' selected':''}>${v}</option>`).join('');
 }
 
@@ -939,7 +957,7 @@ function boxClass(box){
   return n>=1&&n<=4?'bx-'+n:'';
 }
 function payClass(payment){
-  const map={Cash:'paid-cash',Card:'paid-card',Talon:'paid-talon'};
+  const map={Cash:'paid-cash',Card:'paid-card',Talon:'paid-talon',Reno:'paid-reno'};
   return map[payment]||'';
 }
 
@@ -1052,7 +1070,7 @@ function renderStats(s){
     const n=i+1,bd=(s.boxData||{})[b]||{salary:0,washes:0};
     setEl('box'+n+'-sal',fmt(bd.salary));setEl('box'+n+'-w',bd.washes+' რეცხ.');
   });
-  const pct=Math.min((s.totalRevenue/1600)*100,100);
+  const pct=Math.min((s.totalRevenue/2000)*100,100);
   const bar=document.getElementById('bonus-bar-fill');if(bar)bar.style.width=pct.toFixed(1)+'%';
   setEl('bonus-pct-lbl',pct.toFixed(0)+'%');
 }

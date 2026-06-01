@@ -10,21 +10,25 @@ const ADMIN_VIEW_PIN   = '1234';
 const ROOT_FOLDER_NAME = 'ESGTbilisiMall Daily Sheets';
 
 // ── SALARY RULES ────────────────────────────────────────────
-const MANAGER_BASE          = 100;
-const VIP_BONUS_PER_WASH    = 10;
-const DAILY_BONUS_THRESHOLD = 1600;
-const DAILY_BONUS           = 50;
-const WASHER_STANDARD_RATE  = 0.35;
-const WASHER_VIP_RATE       = 0.40;
+const MANAGER_BASE            = 100;
+const VIP_BONUS_RATE          = 0.10;  // 10% of each VIP wash cost
+const DAILY_BONUS_THRESHOLD   = 1600;
+const DAILY_BONUS             = 50;
+const DAILY_BONUS_THRESHOLD_2 = 2000;
+const DAILY_BONUS_2           = 50;
+const WASHER_STANDARD_RATE    = 0.35;
+const WASHER_VIP_RATE         = 0.40;
 
 // ── SHEET NAMES ─────────────────────────────────────────────
 const SH = {
-  DAILY       : 'Daily',
-  SUMMARY     : 'Summary',
-  DAILY_SALES : 'Daily_Sales',
-  DATA        : 'Data',
-  LISTS       : 'Lists',
-  SCHEDULED   : 'Scheduled'  // customer QR bookings
+  DAILY         : 'Daily',
+  SUMMARY       : 'Summary',
+  DAILY_SALES   : 'Daily_Sales',
+  DATA          : 'Data',
+  LISTS         : 'Lists',
+  SCHEDULED     : 'Scheduled',     // customer QR bookings
+  RENO          : 'Reno',          // individual Reno wash log
+  RENO_MONTHLY  : 'Reno Monthly'   // monthly Reno totals for billing
 };
 
 // ── DAILY SHEET COLUMNS (0-based) ───────────────────────────
@@ -220,7 +224,7 @@ function getListsData() {
     carTypes  : ['სედანი', 'ჯიპი', 'ჯიპი XL'],
     washTypes : ['სტანდარტი', 'VIP', 'შიგნიდან', 'გარედან', 'ორივე', 'სხვა'],
     boxes     : BOXES,
-    payments  : ['Cash', 'Card', 'Talon'],
+    payments  : ['Cash', 'Card', 'Talon', 'Reno'],
     prices    : PRICES
   };
 }
@@ -235,6 +239,7 @@ function getDashboardStats() {
   BOXES.forEach(b => { boxData[b] = { salary:0, washes:0 }; });
 
   let cashTotal=0, cardTotal=0, talonCount=0, talonValue=0;
+  let renoCount=0,  renoValue=0;
   let vipCount=0, managerVIPBonus=0, pendingCount=0, pendingValue=0;
 
   entries.forEach(r => {
@@ -242,33 +247,37 @@ function getDashboardStats() {
     const payment   = r[COL.PAYMENT]  || '';
     const washType  = r[COL.WASH_TYPE]|| '';
     const box       = r[COL.BOX]      || '';
-    const isPending = (r[COL.STATUS]  || 'Paid') === 'Pending';
+    const isPending = !payment || payment === 'Pending';
     const isVIP     = washType === 'VIP';
 
     // Washer salary on ALL washes (car was washed regardless of payment)
     const earning = cost * (isVIP ? WASHER_VIP_RATE : WASHER_STANDARD_RATE);
     if (boxData[box]) { boxData[box].salary += earning; boxData[box].washes++; }
 
-    if (isVIP) { vipCount++; managerVIPBonus += VIP_BONUS_PER_WASH; }
+    if (isVIP) { vipCount++; managerVIPBonus += cost * VIP_BONUS_RATE; }
 
     if (isPending) { pendingCount++; pendingValue += cost; }
     else {
       if (payment==='Cash')  cashTotal  += cost;
       if (payment==='Card')  cardTotal  += cost;
       if (payment==='Talon') { talonCount++; talonValue += cost; }
+      if (payment==='Reno')  { renoCount++;  renoValue  += cost; }
     }
   });
 
-  const totalRevenue = cashTotal + cardTotal + talonValue;
-  const projBonus    = totalRevenue >= DAILY_BONUS_THRESHOLD ? DAILY_BONUS : 0;
+  const totalRevenue = cashTotal + cardTotal + talonValue + renoValue;
+  const projBonus    = (totalRevenue >= DAILY_BONUS_THRESHOLD  ? DAILY_BONUS  : 0) +
+                       (totalRevenue >= DAILY_BONUS_THRESHOLD_2 ? DAILY_BONUS_2 : 0);
 
   return {
     totalWashes  : entries.length,
     pendingCount, pendingValue,
     cashTotal, cardTotal, talonCount, talonValue,
+    renoCount, renoValue,
     vipCount, totalRevenue, managerVIPBonus,
     projectedManagerSalary: MANAGER_BASE + managerVIPBonus + projBonus,
-    bonusReached : totalRevenue >= DAILY_BONUS_THRESHOLD,
+    bonusReached  : totalRevenue >= DAILY_BONUS_THRESHOLD,
+    bonusReached2 : totalRevenue >= DAILY_BONUS_THRESHOLD_2,
     boxData
   };
 }
@@ -387,6 +396,11 @@ function addEntry(data) {
       status
     ]);
     const rowIndex = sheet.getLastRow() - 2; // 0-based data index
+    if (payType === 'Reno') {
+      _logRenoEntry({ plate:(data.plateNumber||'').toUpperCase(),
+                      carType:data.carType||'', washType:data.washType||'',
+                      cost:parseFloat(data.cost)||0 });
+    }
     return { success:true, rowIndex };
   } catch(e) { return { success:false, message:e.message }; }
 }
@@ -468,8 +482,54 @@ function markAsPaid(rowIndex, paymentType) {
     const sheetRow = rowIndex + 2;
     sheet.getRange(sheetRow, COL.PAYMENT+1).setValue(paymentType);
     sheet.getRange(sheetRow, COL.STATUS+1 ).setValue('Paid');
+    if (paymentType === 'Reno') {
+      const row = sheet.getRange(sheetRow, 1, 1, 9).getValues()[0];
+      _logRenoEntry({ plate   : row[COL.PLATE]    || '',
+                      carType : row[COL.CAR_TYPE]  || '',
+                      washType: row[COL.WASH_TYPE] || '',
+                      cost    : parseFloat(row[COL.COST]) || 0 });
+    }
     return { success:true };
   } catch(e) { return { success:false, message:e.message }; }
+}
+
+// ── Log each Reno wash to the Reno sheet + update monthly totals ──
+function _logRenoEntry(d) {
+  try {
+    const ss  = _getSS();
+    const tz  = Session.getScriptTimeZone();
+    const now = new Date();
+    const mon = Utilities.formatDate(now, tz, 'MMMM yyyy');
+    const dt  = Utilities.formatDate(now, tz, 'dd/MM/yyyy');
+
+    // Individual wash log
+    let renoSheet = ss.getSheetByName(SH.RENO);
+    if (!renoSheet) {
+      renoSheet = ss.insertSheet(SH.RENO);
+      renoSheet.appendRow(['თვე','თარიღი','ნომ.','მანქანა','რეცხვა','₾']);
+      renoSheet.getRange('1:1').setFontWeight('bold')
+        .setBackground('#1A2132').setFontColor('#FFFFFF');
+    }
+    renoSheet.appendRow([mon, dt, d.plate, d.carType, d.washType, d.cost]);
+
+    // Monthly totals
+    let monSheet = ss.getSheetByName(SH.RENO_MONTHLY);
+    if (!monSheet) {
+      monSheet = ss.insertSheet(SH.RENO_MONTHLY);
+      monSheet.appendRow(['თვე','რეცხვების რაოდ.','სულ ₾']);
+      monSheet.getRange('1:1').setFontWeight('bold')
+        .setBackground('#1A2132').setFontColor('#FFFFFF');
+    }
+    const rows = monSheet.getDataRange().getValues();
+    const ri   = rows.findIndex(function(r, i) { return i > 0 && String(r[0]) === mon; });
+    if (ri === -1) {
+      monSheet.appendRow([mon, 1, d.cost]);
+    } else {
+      const sr = ri + 1;
+      monSheet.getRange(sr, 2).setValue((parseInt(rows[ri][1]) || 0) + 1);
+      monSheet.getRange(sr, 3).setValue((parseFloat(rows[ri][2]) || 0) + d.cost);
+    }
+  } catch(e) { Logger.log('_logRenoEntry error: ' + e.message); }
 }
 
 // ============================================================
@@ -536,6 +596,7 @@ function closeShift(managerName) {
     BOXES.forEach(b=>{ boxSalaries[b]=0; boxWashes[b]=0; });
 
     let cashTotal=0, cardTotal=0, talonValue=0, talonCount=0;
+    let renoCount=0,  renoValue=0;
     let pendingTotal=0, pendingCount=0, washerTotal=0, managerVIPBonus=0;
 
     entries.forEach(row => {
@@ -544,41 +605,43 @@ function closeShift(managerName) {
       const cost      = parseFloat(row[COL.COST])   || 0;
       const payment   = row[COL.PAYMENT]   || '';
       const box       = row[COL.BOX]       || '';
-      const isPending = (row[COL.STATUS]   || 'Paid') === 'Pending';
+      const isPending = !payment || payment === 'Pending';
       const isVIP     = washType === 'VIP';
 
       const earning   = cost * (isVIP ? WASHER_VIP_RATE : WASHER_STANDARD_RATE);
       washerTotal    += earning;
       if (boxSalaries[box]!==undefined){ boxSalaries[box]+=earning; boxWashes[box]++; }
 
-      if (isVIP) managerVIPBonus += VIP_BONUS_PER_WASH;
+      if (isVIP) managerVIPBonus += cost * VIP_BONUS_RATE;
 
       if (isPending) { pendingCount++; pendingTotal+=cost; }
       else {
         if (payment==='Cash')  cashTotal +=cost;
         if (payment==='Card')  cardTotal +=cost;
         if (payment==='Talon'){ talonValue+=cost; talonCount++; }
+        if (payment==='Reno') { renoValue +=cost; renoCount++; }
       }
 
       const tk = byType[carType] ? carType : null;
       if (tk) {
         byType[tk].count++;
-        if (isPending)        byType[tk].pending+=cost;
+        if (isPending)              byType[tk].pending+=cost;
         else if (payment==='Cash')  byType[tk].cash+=cost;
         else if (payment==='Card')  byType[tk].card+=cost;
-        else if (payment==='Talon') byType[tk].talon+=cost;
+        else if (payment==='Talon'||payment==='Reno') byType[tk].talon+=cost;
       }
       if (isVIP) {
         byType['VIP'].count++;
-        if (isPending)        byType['VIP'].pending+=cost;
+        if (isPending)              byType['VIP'].pending+=cost;
         else if (payment==='Cash')  byType['VIP'].cash+=cost;
         else if (payment==='Card')  byType['VIP'].card+=cost;
-        else if (payment==='Talon') byType['VIP'].talon+=cost;
+        else if (payment==='Talon'||payment==='Reno') byType['VIP'].talon+=cost;
       }
     });
 
-    const totalRevenue  = cashTotal + cardTotal + talonValue;
-    const dailyBonus    = totalRevenue >= DAILY_BONUS_THRESHOLD ? DAILY_BONUS : 0;
+    const totalRevenue  = cashTotal + cardTotal + talonValue + renoValue;
+    const dailyBonus    = (totalRevenue >= DAILY_BONUS_THRESHOLD  ? DAILY_BONUS  : 0) +
+                          (totalRevenue >= DAILY_BONUS_THRESHOLD_2 ? DAILY_BONUS_2 : 0);
     const managerTotal  = MANAGER_BASE + managerVIPBonus + dailyBonus;
     const totalExpenses = washerTotal + managerTotal;
     const remainCashCard= cashTotal + cardTotal - totalExpenses;
@@ -597,16 +660,17 @@ function closeShift(managerName) {
       _typeRow('ჯიპი',    byType),
       _typeRow('ჯიპი XL', byType),
       _typeRow('VIP',     byType),
-      ['სულ',entries.length,cashTotal,cardTotal,talonValue,totalRevenue,pendingTotal],
+      ['სულ',entries.length,cashTotal,cardTotal,talonValue+renoValue,totalRevenue,pendingTotal],
       ['','','','','','',''],
       ['ხარჯები','','','','','',''],
-      ['','ბაზა','VIP','ბონუსი','სრული','',''],
+      ['','ბაზა','VIP %','ბონუსი','სრული','',''],
       ['მრეცხავები – Box 1',boxSalaries['Box 1'],'','',boxWashes['Box 1']+' რეცხ.','',''],
       ['მრეცხავები – Box 2',boxSalaries['Box 2'],'','',boxWashes['Box 2']+' რეცხ.','',''],
       ['მრეცხავები – Box 3',boxSalaries['Box 3'],'','',boxWashes['Box 3']+' რეცხ.','',''],
       ['მრეცხავები – Box 4',boxSalaries['Box 4'],'','',boxWashes['Box 4']+' რეცხ.','',''],
-      ['მენეჯერი ('+managerName+')',MANAGER_BASE,managerVIPBonus,dailyBonus,managerTotal,'',''],
-      ['ტალონი',talonCount+' ერთ.','','','','',''],
+      ['მენეჯერი ('+managerName+')',MANAGER_BASE,managerVIPBonus.toFixed(2),dailyBonus,managerTotal,'',''],
+      ['ტალონი',talonCount+' ერთ. / '+talonValue.toFixed(2)+' ₾','','','','',''],
+      ['Reno',renoCount+' ერთ. / '+renoValue.toFixed(2)+' ₾','','','','',''],
       ['მოლოდინი',pendingCount+' ერთ. / '+pendingTotal.toFixed(2)+' ₾','','','','',''],
       ['სულ ხარჯები',totalExpenses.toFixed(2),'','','','',''],
       ['','','','','','',''],
@@ -714,8 +778,8 @@ function closeShift(managerName) {
       .setFontSize(13).setFontWeight('bold').setHorizontalAlignment('center');
     archSum2.setRowHeight(1, 38);
 
-    // Section headers — rows 3 (შემოსავალი), 11 (ხარჯები), 22 (დარჩენილი)
-    [3, 11, 22].forEach(function(r) {
+    // Section headers — rows 3 (შემოსავალი), 11 (ხარჯები), 23 (დარჩენილი — shifted by +1 for Reno row)
+    [3, 11, 23].forEach(function(r) {
       archSum2.getRange(r, 1, 1, 7).merge()
         .setBackground('#2C3A50').setFontColor('#FFFFFF')
         .setFontWeight('bold').setFontSize(11);
@@ -733,8 +797,8 @@ function closeShift(managerName) {
     archSum2.getRange(9, 1, 1, 7)
       .setBackground('#EBF5FB').setFontWeight('bold');
 
-    // Expenses total row (row 20)
-    archSum2.getRange(20, 1, 1, 7)
+    // Expenses total row (row 21 — shifted +1 by Reno row)
+    archSum2.getRange(21, 1, 1, 7)
       .setBackground('#FEF3C7').setFontWeight('bold');
 
     // Remainder row (last row — row 23)
@@ -811,7 +875,7 @@ function _typeRow(key, byType) {
 // ============================================================
 function setupSpreadsheet() {
   const ss = _getSS();
-  [SH.DAILY,SH.SUMMARY,SH.DAILY_SALES,SH.DATA,SH.LISTS,SH.SCHEDULED].forEach(n=>{
+  [SH.DAILY,SH.SUMMARY,SH.DAILY_SALES,SH.DATA,SH.LISTS,SH.SCHEDULED,SH.RENO,SH.RENO_MONTHLY].forEach(n=>{
     if (!ss.getSheetByName(n)) ss.insertSheet(n);
   });
   const daily = ss.getSheetByName(SH.DAILY);

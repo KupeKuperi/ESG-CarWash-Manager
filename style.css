@@ -405,6 +405,10 @@ select{cursor:pointer;appearance:none;
 .egrid td.pc-cash  select{color:var(--cash);font-weight:700}
 .egrid td.pc-card  select{color:var(--card-pay);font-weight:700}
 .egrid td.pc-talon select{color:var(--talon);font-weight:700}
+.egrid td.pc-reno  select{color:#7C3AED;font-weight:700}
+
+/* Reno paid row tint */
+.egrid tbody tr.paid-reno td:not(.col-num){background:#F5F3FF}
 
 /* ── BOX EARNINGS BAR ── */
 .box-bar{display:flex;align-items:stretch;background:var(--surface);
@@ -605,6 +609,7 @@ select{cursor:pointer;appearance:none;
 .ls-card.blue  {border-color:rgba(59,130,246,.5);background:rgba(59,130,246,.08)}
 .ls-card.amber {border-color:rgba(217,119,6,.5);background:rgba(217,119,6,.08)}
 .ls-card.red   {border-color:rgba(220,38,38,.4);background:rgba(220,38,38,.07)}
+.ls-card.purple{border-color:rgba(124,58,237,.5);background:rgba(124,58,237,.08)}
 .lsc-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
   color:#8A9BBE;margin-bottom:5px}
 .lsc-value{font-size:24px;font-weight:800;color:#E2EAF4;line-height:1}
@@ -613,6 +618,7 @@ select{cursor:pointer;appearance:none;
 .ls-card.blue   .lsc-value{color:#60A5FA}
 .ls-card.amber  .lsc-value{color:#F59E0B}
 .ls-card.red    .lsc-value{color:#F87171}
+.ls-card.purple .lsc-value{color:#A78BFA}
 
 /* ── Box row ── */
 .ls-boxes{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
