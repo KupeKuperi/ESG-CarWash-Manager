@@ -742,3 +742,61 @@ select{cursor:pointer;appearance:none;
 .live-refresh{display:flex;align-items:center;gap:8px;font-size:11px;color:#5A6A85;margin-top:12px}
 .refresh-dot{width:6px;height:6px;border-radius:50%;background:#00E676;
   animation:livepulse 2s infinite}
+
+/* ============================================================
+   SCHEDULED WASHES SECTION  (live screen — customer QR bookings)
+   ============================================================ */
+.ls-sched-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:20px;height:20px;padding:0 6px;border-radius:10px;
+  background:rgba(245,158,11,.2);border:1px solid rgba(245,158,11,.4);
+  font-size:11px;font-weight:700;color:#F59E0B}
+
+.ls-sched-wrap{
+  background:#222B3A;border:1px solid rgba(245,158,11,.2);
+  border-radius:10px;overflow:auto;max-height:220px}
+
+.ls-sched-row td{
+  padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.04);
+  font-size:12px;color:#C8D8EE}
+.ls-sched-row:last-child td{border-bottom:none}
+.ls-sched-row:hover td{background:rgba(245,158,11,.04)}
+
+.ls-sched-ok{
+  padding:3px 12px;border:1px solid rgba(16,185,129,.4);border-radius:5px;
+  background:rgba(16,185,129,.1);color:#10B981;font-size:11px;font-weight:700;
+  cursor:pointer;font-family:var(--font);transition:all .15s ease;white-space:nowrap}
+.ls-sched-ok:hover{background:rgba(16,185,129,.25);border-color:#10B981;
+  box-shadow:0 0 8px rgba(16,185,129,.2)}
+.ls-sched-ok:disabled{opacity:.4;cursor:not-allowed}
+
+/* ============================================================
+   SCHEDULED WASH NOTIFICATION  (slides in from bottom-left)
+   ============================================================ */
+.sched-notif{
+  position:fixed;bottom:28px;left:24px;z-index:970;
+  display:flex;align-items:center;gap:12px;
+  padding:14px 16px 14px 18px;
+  background:#1A2535;border:1px solid rgba(245,158,11,.55);border-radius:14px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5),0 0 0 1px rgba(245,158,11,.1);
+  transform:translateX(calc(-100% - 30px));
+  transition:transform .38s cubic-bezier(.34,1.56,.64,1);
+  max-width:340px;min-width:260px}
+.sched-notif.show{transform:translateX(0)}
+
+.sn-icon{font-size:28px;flex-shrink:0;line-height:1}
+.sn-body{flex:1;min-width:0}
+.sn-title{
+  font-size:12px;font-weight:700;color:#F59E0B;
+  text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
+.sn-detail{
+  font-size:13px;font-weight:600;color:#E2EAF4;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.sn-close{
+  width:22px;height:22px;flex-shrink:0;border-radius:50%;
+  border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);
+  color:#8A9BBE;cursor:pointer;font-size:12px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s ease;font-family:var(--font)}
+.sn-close:hover{background:rgba(220,38,38,.2);border-color:rgba(220,38,38,.5);color:#F87171}

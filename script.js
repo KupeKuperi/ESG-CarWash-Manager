@@ -105,7 +105,9 @@ const S = {
   liveRefreshTimer : null,
   collectingRowIdx : null,
   collectPay       : null,
-  editingRowIdx    : null
+  editingRowIdx    : null,
+  seenScheduledIds : new Set(),   // tracks IDs we've already notified for
+  _schedNotifTimer : null         // auto-dismiss timer for booking notification
 };
 
 // ── BOOT ─────────────────────────────────────────────────────
@@ -231,6 +233,7 @@ function renderLiveData(data) {
     ? '🎯 ბარიერი გადალახულია! +50₾ ბონუსი'
     : 'ბონუსამდე: ' + fmt(1600 - (s.totalRevenue || 0)));
 
+  renderScheduledWashes(data.scheduledWashes || []);
   if (data.allEntries) renderLiveLog(data.allEntries);
 }
 
@@ -257,6 +260,80 @@ function renderLiveLog(entries) {
       <td style="color:#5A6A85">${esc(r.timestamp)}</td>
     </tr>`;
   }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SCHEDULED WASHES  (from customer QR webapp via doPost)
+// ══════════════════════════════════════════════════════════════
+
+function renderScheduledWashes(washes) {
+  const section = document.getElementById('ls-sched-section');
+  const tbody   = document.getElementById('ls-sched-tbody');
+  const badge   = document.getElementById('ls-sched-count');
+  if (!section || !tbody) return;
+
+  if (!washes || !washes.length) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  if (badge) badge.textContent = washes.length;
+
+  // Detect entries that haven't been seen yet → trigger notification
+  const newOnes = washes.filter(w => !S.seenScheduledIds.has(w.id));
+  newOnes.forEach(w => S.seenScheduledIds.add(w.id));
+
+  tbody.innerHTML = washes.map(w => `
+    <tr class="ls-sched-row">
+      <td style="color:#94A3B8;font-size:11px">${esc(w.phone)}</td>
+      <td class="ls-plate">${esc(w.plate)}</td>
+      <td>${esc(w.carType)}</td>
+      <td style="${w.washType==='VIP'?'color:#FFD700;font-weight:700':''}">${esc(w.washType)}</td>
+      <td style="color:#60A5FA;font-weight:600">${esc(String(w.scheduledTime))}</td>
+      <td><button class="ls-sched-ok" onclick="confirmScheduled('${esc(w.id)}',this)">✓ OK</button></td>
+    </tr>`).join('');
+
+  if (newOnes.length) showSchedNotif(newOnes[0]);
+}
+
+function showSchedNotif(w) {
+  const el = document.getElementById('sched-notif');
+  if (!el) return;
+  const detail = document.getElementById('sn-detail');
+  if (detail) {
+    detail.textContent =
+      (w.plate || '?') + ' · ' + (w.carType || '') + ' · ' + (w.washType || '') +
+      (w.scheduledTime ? ' @ ' + w.scheduledTime : '');
+  }
+  el.classList.add('show');
+  clearTimeout(S._schedNotifTimer);
+  S._schedNotifTimer = setTimeout(dismissSchedNotif, 9000);
+}
+
+function dismissSchedNotif() {
+  const el = document.getElementById('sched-notif');
+  if (el) el.classList.remove('show');
+}
+
+// Manager taps ✓ OK → marks booking Confirmed in the sheet → removes from list
+function confirmScheduled(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res && res.success) {
+        S.seenScheduledIds.delete(id); // allow future re-detect if sheet shows it again
+        loadLiveData();
+      } else {
+        if (btn) { btn.disabled = false; btn.textContent = '✓ OK'; }
+        toast('შეცდომა: ' + (res && res.message ? res.message : '?'), 'error');
+      }
+    })
+    .withFailureHandler(e => {
+      if (btn) { btn.disabled = false; btn.textContent = '✓ OK'; }
+      toast(e.message, 'error');
+    })
+    .confirmScheduledWash(id);
 }
 
 // ── ADMIN PIN OVERLAY ──────────────────────────────────────────

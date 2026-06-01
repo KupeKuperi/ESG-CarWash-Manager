@@ -7,7 +7,7 @@
 const SPREADSHEET_ID   = '1ufhpPY_J366QJ1qf5wEjpvlbHVORIZX59EBwbn3NZsc';
 const MANAGER_PIN      = '2329';
 const ADMIN_VIEW_PIN   = '1234';
-const ROOT_FOLDER_NAME = 'ESGMall App';
+const ROOT_FOLDER_NAME = 'ESGTbilisiMall Daily Sheets';
 
 // ── SALARY RULES ────────────────────────────────────────────
 const MANAGER_BASE          = 100;
@@ -23,7 +23,8 @@ const SH = {
   SUMMARY     : 'Summary',
   DAILY_SALES : 'Daily_Sales',
   DATA        : 'Data',
-  LISTS       : 'Lists'
+  LISTS       : 'Lists',
+  SCHEDULED   : 'Scheduled'  // customer QR bookings
 };
 
 // ── DAILY SHEET COLUMNS (0-based) ───────────────────────────
@@ -72,6 +73,16 @@ function doPost(e) {
         washType    : data.erpWashType || 'სტანდარტი',
         cost        : 0,
         box         : 'Box 1'
+      });
+      return jsonOut_(result);
+    }
+    if (data.action === 'scheduleWash') {
+      var result = addScheduledWash({
+        phone        : data.phone         || '',
+        plate        : data.plate         || '',
+        carType      : data.carType       || '',
+        washType     : data.washType      || '',
+        scheduledTime: data.scheduledTime || ''
       });
       return jsonOut_(result);
     }
@@ -268,16 +279,83 @@ function getDashboardStats() {
 function getLiveViewData() {
   const props = PropertiesService.getScriptProperties().getProperties();
   if (!props.currentManager) return { active: false };
-  const stats   = getDashboardStats();
-  const entries = getAllEntries();
+  const stats     = getDashboardStats();
+  const entries   = getAllEntries();
+  const scheduled = getScheduledWashes();
   return {
-    active       : true,
+    active          : true,
     stats,
-    managerName  : props.currentManager,
-    shiftStart   : props.shiftStart || null,
-    allEntries   : entries,
-    serverTime   : new Date().toISOString()
+    managerName     : props.currentManager,
+    shiftStart      : props.shiftStart || null,
+    allEntries      : entries,
+    scheduledWashes : scheduled,
+    serverTime      : new Date().toISOString()
   };
+}
+
+// ============================================================
+//  SCHEDULED WASHES  (from customer QR webapp)
+// ============================================================
+
+// Called by doPost when customer submits a booking
+function addScheduledWash(data) {
+  try {
+    const ss = _getSS();
+    let sheet = ss.getSheetByName(SH.SCHEDULED);
+    if (!sheet) {
+      sheet = ss.insertSheet(SH.SCHEDULED);
+      sheet.appendRow(['ID','Phone','Plate','Car Type','Wash Type','Scheduled Time','Status','Created At']);
+      sheet.getRange('1:1').setFontWeight('bold');
+    }
+    const id = 'SCH-' + Date.now();
+    sheet.appendRow([
+      id,
+      data.phone || '',
+      (data.plate || '').toUpperCase(),
+      data.carType  || '',
+      data.washType || '',
+      data.scheduledTime || '',
+      'Pending',
+      new Date()
+    ]);
+    return { success: true, id: id };
+  } catch(e) { return { success: false, message: e.message }; }
+}
+
+// Returns all Pending scheduled washes — included in every getLiveViewData call
+function getScheduledWashes() {
+  try {
+    const ss    = _getSS();
+    const sheet = ss.getSheetByName(SH.SCHEDULED);
+    if (!sheet || sheet.getLastRow() <= 1) return [];
+    const tz   = Session.getScriptTimeZone();
+    const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 8).getValues();
+    return rows
+      .filter(r => r[0] && r[6] === 'Pending')
+      .map(r => ({
+        id           : String(r[0]),
+        phone        : r[1] || '',
+        plate        : r[2] || '',
+        carType      : r[3] || '',
+        washType     : r[4] || '',
+        scheduledTime: r[5] ? String(r[5]) : '',
+        status       : r[6] || 'Pending',
+        createdAt    : r[7] ? Utilities.formatDate(new Date(r[7]), tz, 'HH:mm') : ''
+      }));
+  } catch(e) { return []; }
+}
+
+// Manager taps OK → marks booking as Confirmed, removes it from live list
+function confirmScheduledWash(id) {
+  try {
+    const sheet = _getSS().getSheetByName(SH.SCHEDULED);
+    if (!sheet) return { success: false, message: 'Scheduled sheet not found' };
+    const data = sheet.getDataRange().getValues();
+    const ri   = data.findIndex((r, i) => i > 0 && String(r[0]) === String(id));
+    if (ri === -1) return { success: false, message: 'Booking not found' };
+    sheet.getRange(ri + 1, 7).setValue('Confirmed');
+    return { success: true };
+  } catch(e) { return { success: false, message: e.message }; }
 }
 
 // ============================================================
@@ -538,32 +616,150 @@ function closeShift(managerName) {
     sumSheet.getRange(1,1,summaryRows.length,7).setValues(summaryRows);
     sumSheet.getRange('A1').setFontWeight('bold').setFontSize(13);
 
-    // ── Create Archive Sheet (with Drive folder if authorized) ─
+    // ── Create Archive Spreadsheet ────────────────────────────────
     const monthFolderName = Utilities.formatDate(today, tz, 'MMMM yyyy');
-    const archiveName     = 'ESGMall ' + Utilities.formatDate(today, tz, 'dd/MM/yyyy');
+    const archiveName     = 'ESGDailyMall ' + Utilities.formatDate(today, tz, 'dd/MM/yy');
+    const archiveSS       = SpreadsheetApp.create(archiveName);
 
-    // SpreadsheetApp.create() only needs Spreadsheets scope — always works
-    const archiveSS = SpreadsheetApp.create(archiveName);
+    // ════════════════════════════════════════════════════════════
+    //  SHEET 1 — Daily Sheet  (color-coded wash log)
+    // ════════════════════════════════════════════════════════════
+    const archDaily = archiveSS.getSheets()[0];
+    archDaily.setName('Daily Sheet');
 
-    // Summary tab
-    const archSum = archiveSS.getSheets()[0];
-    archSum.setName('Summary');
-    archSum.getRange(1,1,summaryRows.length,7).setValues(summaryRows);
-    archSum.getRange('A1').setFontWeight('bold');
+    // Row 1 — Title bar
+    archDaily.getRange(1, 1, 1, 10).merge()
+      .setValue('ESGDailyMall  ·  ' + managerName + '  ·  ' + dateStr)
+      .setBackground('#1A2132').setFontColor('#E2EAF4')
+      .setFontSize(12).setFontWeight('bold').setHorizontalAlignment('center');
+    archDaily.setRowHeight(1, 36);
 
-    // Raw data tab
-    const archRaw = archiveSS.insertSheet('Raw Data');
-    archRaw.appendRow(['Date','Plate','Car Type','Wash Type','Cost','Payment','Box','Notes','Status']);
-    entries.forEach(row => {
-      archRaw.appendRow([dateStr,
-        row[COL.PLATE], row[COL.CAR_TYPE], row[COL.WASH_TYPE],
-        parseFloat(row[COL.COST])||0, row[COL.PAYMENT], row[COL.BOX],
-        row[COL.NOTES]||'', row[COL.STATUS]||'Paid'
+    // Row 2 — Column headers
+    const dHdrs = ['#','მანქ. ნომ.','მანქანა','რეცხვა','ბოქსი','₾','გადახდა','სტ.','დრო','📞 ტელ.'];
+    archDaily.getRange(2, 1, 1, dHdrs.length).setValues([dHdrs])
+      .setBackground('#2C3A50').setFontColor('#FFFFFF')
+      .setFontWeight('bold').setFontSize(10).setHorizontalAlignment('center');
+    archDaily.setRowHeight(2, 26);
+
+    // Build data rows (batch-write for performance)
+    const D_PAY_BG   = {Cash:'#F0FDF4', Card:'#EFF6FF', Talon:'#FFFDF5', Pending:'#FFFBEB'};
+    const D_PAY_DISP = {Cash:'💵 ქეში', Card:'💳 ბარათი', Talon:'🎫 ტალონი', Pending:'⏳ ტაბი'};
+    const dVals = [];
+    const dBGs  = [];
+
+    entries.forEach(function(row, i) {
+      const isPending = (row[COL.STATUS] || 'Paid') === 'Pending';
+      const payment   = isPending ? 'Pending' : (row[COL.PAYMENT] || '');
+      const notesRaw  = row[COL.NOTES] || '';
+      const phone     = ((notesRaw.match(/T:([^|]+)/) || [])[1] || '').trim();
+      const ts        = row[COL.TIMESTAMP]
+        ? Utilities.formatDate(new Date(row[COL.TIMESTAMP]), tz, 'HH:mm') : '';
+      dVals.push([
+        i + 1,
+        row[COL.PLATE]     || '',
+        row[COL.CAR_TYPE]  || '',
+        row[COL.WASH_TYPE] || '',
+        row[COL.BOX]       || '',
+        parseFloat(row[COL.COST]) || 0,
+        D_PAY_DISP[payment] || payment,
+        isPending ? 'Pending' : 'Paid',
+        ts,
+        phone
       ]);
+      dBGs.push(new Array(dHdrs.length).fill(D_PAY_BG[payment] || '#FFFFFF'));
     });
 
-    // Try to move into ESG CarWash / May 2026 folder — needs Drive scope
-    // If not yet authorized, file stays in Drive root (still accessible)
+    // Single batch write: values + row background colors
+    if (dVals.length > 0) {
+      const dDataRange = archDaily.getRange(3, 1, dVals.length, dHdrs.length);
+      dDataRange.setValues(dVals).setBackgroundColors(dBGs);
+      // Bold plate (col 2) and cost (col 6) for all data rows
+      archDaily.getRange(3, 2, dVals.length, 1).setFontWeight('bold');
+      archDaily.getRange(3, 6, dVals.length, 1)
+        .setFontWeight('bold').setNumberFormat('0.00');
+    }
+
+    // Totals row
+    const dTotRow = dVals.length + 3;
+    archDaily.getRange(dTotRow, 1, 1, dHdrs.length).setValues([[
+      'სულ', entries.length + ' მობ.', '', '', '',
+      totalRevenue, '💵 ' + cashTotal.toFixed(2) + ' / 💳 ' + cardTotal.toFixed(2), '', '', ''
+    ]]).setBackground('#E8ECF2').setFontWeight('bold');
+    archDaily.getRange(dTotRow, 6).setNumberFormat('0.00');
+
+    // Table borders, frozen header, column widths
+    archDaily.getRange(2, 1, dVals.length + 2, dHdrs.length)
+      .setBorder(true, true, true, true, true, true,
+                 '#CBD5E1', SpreadsheetApp.BorderStyle.SOLID);
+    archDaily.setFrozenRows(2);
+    [35, 110, 90, 110, 75, 70, 120, 70, 55, 110].forEach(function(w, i) {
+      archDaily.setColumnWidth(i + 1, w);
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  SHEET 2 — Summary  (revenue, salaries, expenses)
+    // ════════════════════════════════════════════════════════════
+    const archSum2 = archiveSS.insertSheet('Summary');
+
+    // Write all values using existing summaryRows array, then format
+    archSum2.getRange(1, 1, summaryRows.length, 7).setValues(summaryRows);
+
+    // Override title with ESGDailyMall branding
+    archSum2.getRange(1, 1)
+      .setValue('ESGDailyMall  ·  ' + managerName + '  ·  ' + dateStr);
+
+    // Title bar (row 1)
+    archSum2.getRange(1, 1, 1, 7).merge()
+      .setBackground('#1A2132').setFontColor('#E2EAF4')
+      .setFontSize(13).setFontWeight('bold').setHorizontalAlignment('center');
+    archSum2.setRowHeight(1, 38);
+
+    // Section headers — rows 3 (შემოსავალი), 11 (ხარჯები), 22 (დარჩენილი)
+    [3, 11, 22].forEach(function(r) {
+      archSum2.getRange(r, 1, 1, 7).merge()
+        .setBackground('#2C3A50').setFontColor('#FFFFFF')
+        .setFontWeight('bold').setFontSize(11);
+      archSum2.setRowHeight(r, 28);
+    });
+
+    // Column header rows — rows 4 and 12
+    [4, 12].forEach(function(r) {
+      archSum2.getRange(r, 1, 1, 7)
+        .setBackground('#E8ECF2').setFontWeight('bold').setFontSize(10);
+      archSum2.setRowHeight(r, 22);
+    });
+
+    // Revenue total row (row 9)
+    archSum2.getRange(9, 1, 1, 7)
+      .setBackground('#EBF5FB').setFontWeight('bold');
+
+    // Expenses total row (row 20)
+    archSum2.getRange(20, 1, 1, 7)
+      .setBackground('#FEF3C7').setFontWeight('bold');
+
+    // Remainder row (last row — row 23)
+    archSum2.getRange(summaryRows.length, 1, 1, 7)
+      .setBackground(remainCashCard >= 0 ? '#F0FDF4' : '#FEF2F2')
+      .setFontWeight('bold').setFontSize(12);
+
+    // Number format on the revenue data cells (rows 5-9, cols 2-7)
+    archSum2.getRange(5, 2, 5, 6).setNumberFormat('0.00');
+
+    // Borders on revenue and expenses table blocks
+    archSum2.getRange(3, 1, 7, 7)   // revenue section
+      .setBorder(true, true, true, true, true, true,
+                 '#CBD5E1', SpreadsheetApp.BorderStyle.SOLID);
+    archSum2.getRange(11, 1, 10, 7) // expenses section
+      .setBorder(true, true, true, true, true, true,
+                 '#CBD5E1', SpreadsheetApp.BorderStyle.SOLID);
+
+    // Column widths + freeze title row
+    [220, 100, 100, 80, 80, 90, 90].forEach(function(w, i) {
+      archSum2.setColumnWidth(i + 1, w);
+    });
+    archSum2.setFrozenRows(1);
+
+    // ── Move archive into Drive folder ─────────────────────────
     let archivePath = archiveName + ' (Drive root)';
     try {
       const rootIter   = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
@@ -573,7 +769,6 @@ function closeShift(managerName) {
       DriveApp.getFileById(archiveSS.getId()).moveTo(mthFolder);
       archivePath = ROOT_FOLDER_NAME + ' / ' + monthFolderName + ' / ' + archiveName;
     } catch(driveErr) {
-      // Drive not yet authorized — file saved in Drive root, still works
       Logger.log('Drive folder skipped: ' + driveErr.message);
     }
 
@@ -616,7 +811,7 @@ function _typeRow(key, byType) {
 // ============================================================
 function setupSpreadsheet() {
   const ss = _getSS();
-  [SH.DAILY,SH.SUMMARY,SH.DAILY_SALES,SH.DATA,SH.LISTS].forEach(n=>{
+  [SH.DAILY,SH.SUMMARY,SH.DAILY_SALES,SH.DATA,SH.LISTS,SH.SCHEDULED].forEach(n=>{
     if (!ss.getSheetByName(n)) ss.insertSheet(n);
   });
   const daily = ss.getSheetByName(SH.DAILY);
