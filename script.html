@@ -57,8 +57,8 @@ function calcLocalStats() {
   const totalRevenue=cashTotal+cardTotal+talonValue+renoValue;
   const bonusReached =totalRevenue>=1600;
   const bonusReached2=totalRevenue>=2000;
-  const dailyBonus=(bonusReached?50:0)+(bonusReached2?50:0);
-  const managerTotal=100+managerVIPBonus+dailyBonus;
+  const dailyBonus=(bonusReached?50:0)+(bonusReached2?25:0);
+  const managerTotal=110+managerVIPBonus+dailyBonus;
 
   return { totalWashes, cashTotal, cardTotal, talonCount, talonValue,
            renoCount, renoValue,
@@ -70,8 +70,9 @@ function calcLocalStats() {
 function renderSummaryFromStats(s){
   setEl('sv-revenue', fmt(s.totalRevenue));
   setEl('sv-washes',  s.totalWashes);
-  setEl('sv-cash',    fmt(s.cashTotal));
-  setEl('sv-card',    fmt(s.cardTotal));
+  setEl('sv-cash',      fmt(s.cashTotal));
+  setEl('sv-card',      fmt(s.cardTotal));
+  setEl('sv-cash-card', fmt((s.cashTotal||0)+(s.cardTotal||0)));
   setEl('sv-talon',   (s.talonCount||0)+' / '+fmt(s.talonValue));
   setEl('sv-reno',    (s.renoCount||0)+' / '+fmt(s.renoValue));
   setEl('sv-pending', s.pendingCount+' / '+fmt(s.pendingValue));
@@ -80,7 +81,7 @@ function renderSummaryFromStats(s){
     setEl('sv-b'+n+'-sal',fmt(bd.salary));
     setEl('sv-b'+n+'-w',  bd.washes+' რეცხ.');
   });
-  setEl('sv-mgr-base',  '100.00₾');
+  setEl('sv-mgr-base',  '110.00₾');
   setEl('sv-mgr-vip',   fmt(s.managerVIPBonus||0));
   const bonus=s.dailyBonus||0;
   setEl('sv-mgr-bonus', bonus>0?'+'+fmt(bonus)+(s.bonusReached2?' ✓✓':' ✓'):'0.00₾');
@@ -91,7 +92,7 @@ function renderSummaryFromStats(s){
   setEl('sv-bonus-status',fmt(s.totalRevenue)+' / 2,000₾');
   const rev=s.totalRevenue||0;
   setEl('sv-bonus-lbl', s.bonusReached2
-    ?'🎯🎯 2,000₾ გადალახულია! +100₾ ბონუსი'
+    ?'🎯🎯 2,000₾ გადალახულია! +75₾ ბონუსი'
     :s.bonusReached
     ?'🎯 1,600₾ ✓  ·  2,000₾-მდე: '+fmt(2000-rev)
     :'ბონუსამდე (1,600₾): '+fmt(1600-rev));
@@ -103,6 +104,9 @@ function updateAll(){
   renderStats(s);
   const sumPanel=document.getElementById('tab-summary');
   if(sumPanel&&sumPanel.classList.contains('active')) renderSummaryFromStats(s);
+  // Instant offline backup on every change (debounced), on top of the 10s timer
+  clearTimeout(S._bkTimer);
+  S._bkTimer=setTimeout(_backupGridToLocalStorage,400);
 }
 
 // ── STATE ─────────────────────────────────────────────────────
@@ -112,24 +116,40 @@ const S = {
   savedRows        : [],
   syncTimer        : null,
   liveRefreshTimer : null,
-  collectingRowIdx : null,
-  collectPay       : null,
-  editingRowIdx    : null,
   seenScheduledIds : new Set(),
-  _schedNotifTimer : null
+  _schedNotifTimer : null,
+  _failCount       : 0
 };
+
+// ── OFFLINE INDICATOR — banner after repeated sync failures ──
+function _netFail(){
+  S._failCount++;
+  if(S._failCount>=2) document.getElementById('offline-banner')?.classList.add('show');
+}
+function _netOK(){
+  S._failCount=0;
+  document.getElementById('offline-banner')?.classList.remove('show');
+}
 
 // ── BOOT ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // Restore dark mode preference immediately (before any screen flash)
+  if(localStorage.getItem('esg_dm')==='1'){
+    document.body.classList.add('dark-mode');
+    const dmb=document.getElementById('dm-btn');
+    if(dmb) dmb.textContent='☀';
+  }
   startClock();
   bindLogin();
   bindStartShift();
   bindLogout();
   bindShiftClose();
-  bindEditModal();
   addInvRow();
   prerenderGrid();
   checkShiftOnLoad();
+  // Browser-level connectivity signals for the offline banner
+  window.addEventListener('offline',()=>document.getElementById('offline-banner')?.classList.add('show'));
+  window.addEventListener('online', ()=>document.getElementById('offline-banner')?.classList.remove('show'));
 });
 
 // ── CLOCK ─────────────────────────────────────────────────────
@@ -184,6 +204,7 @@ function showLiveScreen(status) {
   }
   loadLiveData();
   startLiveRefresh();
+  _updateResumeBtn();
 }
 
 function hideLiveScreen() {
@@ -233,7 +254,7 @@ function renderLiveData(data) {
   setEl('ls-bonus-status', fmt(s.totalRevenue) + ' / 2,000₾');
   const rev = s.totalRevenue || 0;
   setEl('ls-bonus-lbl', s.bonusReached2
-    ? '🎯🎯 2,000₾ გადალახულია! +100₾ ბონუსი'
+    ? '🎯🎯 2,000₾ გადალახულია! +75₾ ბონუსი'
     : s.bonusReached
     ? '🎯 1,600₾ ✓  ·  2,000₾-მდე: ' + fmt(2000 - rev)
     : 'ბონუსამდე: ' + fmt(1600 - rev));
@@ -318,22 +339,29 @@ function confirmScheduled(id, btn) {
     .confirmScheduledWash(id);
 }
 
-// ── ADMIN PIN OVERLAY ──────────────────────────────────────────
-function showAdminPinOverlay() {
+// ── PIN OVERLAY (Admin View / Resume Work) ────────────────────
+function _openPinOverlay(mode) {
+  S._pinMode = mode;
+  setEl('pin-ov-icon',  mode === 'resume' ? '📋' : '🔐');
+  setEl('pin-ov-title', mode === 'resume' ? 'სამუშაოს გაგრძელება' : 'Admin View');
+  setEl('pin-ov-sub',   mode === 'resume' ? 'მენეჯერის PIN შეიყვანეთ' : 'Admin PIN შეიყვანეთ');
   document.getElementById('admin-pin-input').value = '';
   const err = document.getElementById('admin-pin-error');
   err.textContent = ''; err.classList.remove('show');
   document.getElementById('admin-pin-overlay').classList.add('open');
   setTimeout(() => document.getElementById('admin-pin-input').focus(), 80);
 }
+function showAdminPinOverlay()  { _openPinOverlay('admin');  }
+function showResumePinOverlay() { _openPinOverlay('resume'); }
 function hideAdminPinOverlay() { document.getElementById('admin-pin-overlay').classList.remove('open'); }
 
 function unlockAdminFromLive() {
   const pin = document.getElementById('admin-pin-input').value.trim();
   if (!pin) return;
+  const isResume = S._pinMode === 'resume';
   const btn = document.getElementById('admin-pin-btn');
   setLoad(btn, true);
-  google.script.run
+  const runner = google.script.run
     .withSuccessHandler(res => {
       setLoad(btn, false);
       if (res.success) {
@@ -344,7 +372,9 @@ function unlockAdminFromLive() {
         const d = new Date(res.shiftStart || Date.now());
         setEl('hdr-shift-info', 'ცვლა: ' + p2(d.getHours()) + ':' + p2(d.getMinutes()));
         initApp();
-        toast('✓ Admin View – ' + res.managerName + 'ს ცვლა', 'info');
+        toast(isResume
+          ? '✓ სამუშაო გაგრძელდა – ' + res.managerName
+          : '✓ Admin View – ' + res.managerName + 'ს ცვლა', 'info');
       } else {
         const err = document.getElementById('admin-pin-error');
         err.textContent = res.message; err.classList.add('show');
@@ -354,24 +384,30 @@ function unlockAdminFromLive() {
       setLoad(btn, false);
       const err = document.getElementById('admin-pin-error');
       err.textContent = e.message; err.classList.add('show');
-    })
-    .unlockAdminView(pin);
+    });
+  if (isResume) runner.unlockManagerAccess(pin);
+  else          runner.unlockAdminView(pin);
 }
 
 // ── CLOSE SHIFT FROM LIVE SCREEN ─────────────────────────────
 function closeLiveShift(){
-  if(!confirm('ცვლა დაიხუროს? ყველა მონაცემი Summary-ში ჩაიწერება.')) return;
+  const pendTxt=(document.getElementById('ls-pending')?.textContent||'0').trim();
+  const pendN=parseInt(pendTxt)||0;
+  let msg='ცვლა დაიხუროს? ყველა მონაცემი Summary-ში ჩაიწერება.';
+  if(pendN>0) msg='⚠ გადაუხდელი ტაბი: '+pendTxt+'\n\n'+msg;
+  if(!confirm(msg)) return;
   const managerName = S.managerName || document.getElementById('ls-manager')?.textContent || '—';
   const btn = document.getElementById('live-close-btn');
   setLoad(btn, true);
   google.script.run
     .withSuccessHandler(res=>{
       if(res.success){
+        localStorage.removeItem('esg_grid_bk');
         setLoad(btn, false); stopLiveRefresh(); hideLiveScreen(); showLoginScreen();
-        toast('✓ ცვლა დაიხურა და დაარქივდა','success');
+        toast(res.empty?'ცვლა დაიხურა — ჩანაწერები არ იყო, არქივი არ შეიქმნა':'✓ ცვლა დაიხურა და დაარქივდა', res.empty?'info':'success');
       } else {
         google.script.run
-          .withSuccessHandler(()=>{ setLoad(btn,false); stopLiveRefresh(); hideLiveScreen(); showLoginScreen(); toast('ცვლა გადატვირთულია','info'); })
+          .withSuccessHandler(()=>{ localStorage.removeItem('esg_grid_bk'); setLoad(btn,false); stopLiveRefresh(); hideLiveScreen(); showLoginScreen(); toast('ცვლა გადატვირთულია','info'); })
           .withFailureHandler(e=>{setLoad(btn,false);toast(e.message,'error');})
           .clearShiftState();
       }
@@ -416,7 +452,7 @@ function bindStartShift(){
   btn.addEventListener('click',()=>{
     setLoad(btn,true);
     google.script.run
-      .withSuccessHandler(()=>{
+      .withSuccessHandler(res=>{
         setLoad(btn,false);
         document.getElementById('start-shift-screen').classList.remove('visible');
         document.getElementById('app').classList.add('visible');
@@ -424,6 +460,7 @@ function bindStartShift(){
         const n=new Date();setEl('hdr-shift-info','ცვლა: '+p2(n.getHours())+':'+p2(n.getMinutes()));
         initApp();
         toast('✓ ცვლა დაიწყო · '+p2(n.getHours())+':'+p2(n.getMinutes()),'success');
+        if(res&&res.leftover>0) toast('⚠ '+res.leftover+' ჩანაწერი წინა ცვლიდან Daily-შია — ისინი ამ ცვლაში გამოჩნდება','warning');
       })
       .withFailureHandler(e=>{setLoad(btn,false);toast(e.message,'error');})
       .setShiftStart(S.managerName);
@@ -455,6 +492,7 @@ function autoSyncGrid(){
       updateExistingRow(tr);
     }
   });
+  _backupGridToLocalStorage();
 }
 
 // ── TAB ───────────────────────────────────────────────────────
@@ -481,6 +519,7 @@ function loadAndRenderGrid(){
       S.savedRows=rows||[];
       buildGrid(S.savedRows, EMPTY_ROWS_BUFFER);
       bindGridKeyboard();
+      _restoreLocalBackup();
       const firstEmpty=document.querySelector('#wash-tbody tr.is-empty [data-col="plate"]');
       if(firstEmpty) firstEmpty.focus();
     })
@@ -558,6 +597,12 @@ function bindGridKeyboard(){
   if(!tbody) return;
   tbody.removeEventListener('keydown', _gridKeyHandler);
   tbody.addEventListener('keydown', _gridKeyHandler);
+  tbody.removeEventListener('change', _gridDropTracker);
+  tbody.addEventListener('change', _gridDropTracker);
+}
+// Resets _dropOpen when a select's value actually changes
+function _gridDropTracker(e){
+  if(e.target.tagName==='SELECT') e.target._dropOpen=false;
 }
 
 function _gridKeyHandler(e){
@@ -569,40 +614,78 @@ function _gridKeyHandler(e){
   if(target.matches('input,select')){
     const col=target.dataset.col;
     const idx=ECOLS.indexOf(col);
+    const isSel=target.tagName==='SELECT';
 
     switch(e.key){
       case 'Escape':
         e.preventDefault();
+        if(isSel) target._dropOpen=false;
         target.blur();
         target.closest('td')?.focus(); // back to nav mode
         return;
+
       case 'ArrowUp':
+        // If select dropdown is open, let browser navigate options
+        if(isSel && target._dropOpen) return;
         e.preventDefault();
         { const prev=tr.previousElementSibling; if(prev) navFocus(prev,col); }
         return;
+
       case 'ArrowDown':
+        // If select dropdown is open, let browser navigate options
+        if(isSel && target._dropOpen) return;
         e.preventDefault();
         { const next=tr.nextElementSibling; if(next) navFocus(next,col); }
         return;
+
       case 'Enter':
+        if(isSel){
+          if(target._dropOpen){
+            // Dropdown was open — user pressing Enter to confirm selection
+            target._dropOpen=false;
+            // Don't preventDefault so browser can confirm the chosen option
+            setTimeout(()=>{
+              maybeSaveRow(tr);
+              const next=tr.nextElementSibling; if(next) navFocus(next,col);
+            },0);
+          } else {
+            // Dropdown was closed — open it
+            e.preventDefault();
+            target._dropOpen=true;
+            try{ target.showPicker(); }catch(ex){}
+          }
+          return;
+        }
+        // Input Enter — save + move down
         e.preventDefault();
         maybeSaveRow(tr);
         { const next=tr.nextElementSibling; if(next) navFocus(next,col); }
         return;
+
+      case ' ':
+        if(isSel){
+          // Space opens native dropdown — just track the state, don't prevent default
+          target._dropOpen=true;
+          return;
+        }
+        break;
+
       case 'ArrowLeft':
-        // Selects: always go left; inputs: only at cursor position 0
-        if(target.tagName==='SELECT'||(target.selectionStart===0&&target.selectionEnd===0)){
+        if(isSel && target._dropOpen) return; // let browser handle when open
+        if(isSel||(target.selectionStart===0&&target.selectionEnd===0)){
           e.preventDefault();
           if(idx>0) navFocus(tr,ECOLS[idx-1]);
         }
         return;
+
       case 'ArrowRight':
-        // Selects: always go right; inputs: only at cursor end
-        if(target.tagName==='SELECT'||(target.selectionStart===target.value.length&&target.selectionEnd===target.value.length)){
+        if(isSel && target._dropOpen) return; // let browser handle when open
+        if(isSel||(target.selectionStart===target.value.length&&target.selectionEnd===target.value.length)){
           e.preventDefault();
           if(idx<ECOLS.length-1) navFocus(tr,ECOLS[idx+1]);
         }
         return;
+
       case 'Tab':
         e.preventDefault();
         if(!e.shiftKey){
@@ -628,8 +711,13 @@ function _gridKeyHandler(e){
       case 'Enter':
       case 'F2':
         e.preventDefault();
-        navEl.focus();
-        if(navEl.tagName==='INPUT') navEl.select();
+        if(navEl.tagName==='SELECT'){
+          navEl.focus();
+          navEl._dropOpen=true;
+          try{ navEl.showPicker(); }catch(ex){}
+        } else {
+          navEl.focus(); navEl.select();
+        }
         return;
       case 'ArrowRight':
         e.preventDefault();
@@ -662,8 +750,13 @@ function _gridKeyHandler(e){
       default:
         // Typing any printable char in nav mode → enter edit mode
         if(e.key.length===1&&!e.ctrlKey&&!e.metaKey){
-          navEl.focus();
-          if(navEl.tagName==='INPUT') navEl.select();
+          if(navEl.tagName==='SELECT'){
+            navEl.focus();
+            navEl._dropOpen=true;
+            try{ navEl.showPicker(); }catch(ex){}
+          } else {
+            navEl.focus(); navEl.select();
+          }
         }
     }
   }
@@ -736,6 +829,7 @@ function onPaymentChange(sel){
     if((state==='pending'||state==='paid') && !isNaN(rowIdx)){
       google.script.run
         .withSuccessHandler(res=>{
+          _netOK();
           if(res&&res.success){
             tr.dataset.state='paid';
             tr.classList.remove('paid-cash','paid-card','paid-talon','paid-reno');
@@ -744,7 +838,7 @@ function onPaymentChange(sel){
             toast('✓ '+val+' — '+(state==='paid'?'განახლდა':'გადახდა მიღებულია'),'success');
           }
         })
-        .withFailureHandler(()=>{})
+        .withFailureHandler(()=>{ tr.dataset.dirty='true'; _netFail(); }) // offline/error → retry on next auto-sync
         .markAsPaid(rowIdx, val);
     }
   }
@@ -820,8 +914,9 @@ function submitNewRow(tr, plate, opts){
             .updateLoyalty(data.loyaltyCode);
         }
       } else { tr.dataset.state='new'; if(showToast) toast('შეცდომა: '+res.message,'error'); }
+      _netOK();
     })
-    .withFailureHandler(e=>{ tr.dataset.state='new'; if(showToast) toast(e.message,'error'); })
+    .withFailureHandler(e=>{ tr.dataset.state='new'; _netFail(); if(showToast) toast(e.message,'error'); })
     .addEntry(data);
 }
 
@@ -841,8 +936,8 @@ function updateExistingRow(tr){
   };
   tr.dataset.dirty='false';
   google.script.run
-    .withSuccessHandler(()=>{updateAll();})
-    .withFailureHandler(()=>{})
+    .withSuccessHandler(()=>{ _netOK(); updateAll(); })
+    .withFailureHandler(()=>{ tr.dataset.dirty='true'; _netFail(); }) // offline/error → retry on next auto-sync
     .updateEntry(rowIdx, data);
 }
 
@@ -865,69 +960,6 @@ function payOpts(sel){
 
 function boxClass(box){ const n=parseInt((box||'').replace(/\D/g,'')); return n>=1&&n<=4?'bx-'+n:''; }
 function payClass(payment){ const map={Cash:'paid-cash',Card:'paid-card',Talon:'paid-talon',Reno:'paid-reno'}; return map[payment]||''; }
-
-// ═══════════════════════════════════════════════════════════════
-//  COLLECT PAYMENT
-// ═══════════════════════════════════════════════════════════════
-function openCollectFromLog(rowIdx, plate, cost){
-  S.collectingRowIdx=rowIdx; S.collectPay=null;
-  setEl('collect-modal-title','💰 '+plate+' – '+cost+'₾');
-  document.querySelectorAll('.pay-option').forEach(el=>el.classList.remove('sel'));
-  document.getElementById('confirm-pay-btn').disabled=true;
-  document.getElementById('collect-modal').classList.add('open');
-}
-function closeCollectModal(){ document.getElementById('collect-modal').classList.remove('open'); S.collectingRowIdx=null; S.collectPay=null; }
-function selectPay(type){
-  S.collectPay=type;
-  document.querySelectorAll('.pay-option').forEach(el=>{
-    const lbl=el.querySelector('.po-lbl').textContent;
-    el.classList.toggle('sel',(type==='Cash'&&lbl==='Cash')||(type==='Card'&&lbl==='ბარათი')||(type==='Talon'&&lbl==='ტალონი'));
-  });
-  document.getElementById('confirm-pay-btn').disabled=false;
-}
-function onConfirmPay(){
-  if(S.collectingRowIdx===null||!S.collectPay) return;
-  const btn=document.getElementById('confirm-pay-btn');
-  setLoad(btn,true);
-  google.script.run
-    .withSuccessHandler(res=>{ setLoad(btn,false); if(res.success){ toast('✓ '+S.collectPay+' – გადახდა მიღებულია','success'); closeCollectModal(); loadAndRenderGrid(); refreshStats(); } else toast('შეცდომა: '+res.message,'error'); })
-    .withFailureHandler(e=>{setLoad(btn,false);toast(e.message,'error');})
-    .markAsPaid(S.collectingRowIdx, S.collectPay);
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  EDIT MODAL
-// ═══════════════════════════════════════════════════════════════
-function openEditFromLog(rowIdx){
-  const r=S.savedRows[rowIdx]; if(!r) return;
-  S.editingRowIdx=rowIdx;
-  const note=parseNotes(r.notes);
-  document.getElementById('edit-plate').value    =r.plateNumber;
-  document.getElementById('edit-car-type').value =r.carType;
-  document.getElementById('edit-wash-type').value=r.washType;
-  document.getElementById('edit-box').value      =r.box;
-  document.getElementById('edit-cost').value     =r.cost;
-  document.getElementById('edit-payment').value  =r.paymentType==='Pending'?'Cash':r.paymentType;
-  document.getElementById('edit-loyalty').value  =note.loyalty;
-  document.getElementById('edit-phone').value    =note.phone;
-  document.getElementById('edit-modal').classList.add('open');
-}
-function bindEditModal(){
-  const modal=document.getElementById('edit-modal'); if(!modal) return;
-  document.getElementById('close-edit-modal').addEventListener('click',closeEditModal);
-  modal.addEventListener('click',e=>{if(e.target===modal)closeEditModal();});
-  document.getElementById('edit-form').addEventListener('submit',e=>{
-    e.preventDefault();
-    const btn=document.getElementById('save-edit-btn');
-    const data={ plateNumber:document.getElementById('edit-plate').value.trim(), loyaltyCode:document.getElementById('edit-loyalty').value.trim(), phone:document.getElementById('edit-phone').value.trim(), carType:document.getElementById('edit-car-type').value, washType:document.getElementById('edit-wash-type').value, cost:parseFloat(document.getElementById('edit-cost').value)||0, paymentType:document.getElementById('edit-payment').value, box:document.getElementById('edit-box').value, status:'Pending' };
-    setLoad(btn,true);
-    google.script.run
-      .withSuccessHandler(res=>{ setLoad(btn,false); if(res.success){toast('✓ ჩანაწერი განახლდა','success');closeEditModal();loadAndRenderGrid();refreshStats();} else toast('შეცდომა: '+res.message,'error'); })
-      .withFailureHandler(e=>{setLoad(btn,false);toast(e.message,'error');})
-      .updateEntry(S.editingRowIdx,data);
-  });
-}
-function closeEditModal(){ document.getElementById('edit-modal').classList.remove('open'); S.editingRowIdx=null; }
 
 // ═══════════════════════════════════════════════════════════════
 //  STATS
@@ -983,15 +1015,42 @@ function saveInvRow(btn){
 //  CLOSE SHIFT
 // ═══════════════════════════════════════════════════════════════
 function bindShiftClose(){
-  document.getElementById('close-shift-btn').addEventListener('click',()=>{ document.getElementById('confirm-modal').classList.add('open'); });
+  document.getElementById('close-shift-btn').addEventListener('click',()=>{
+    // Warn about unpaid tabs before closing
+    const s=calcLocalStats();
+    const w=document.getElementById('confirm-pending-warn');
+    if(w){
+      if(s.pendingCount>0){ w.textContent='⚠ გადაუხდელი ტაბი: '+s.pendingCount+' ('+fmt(s.pendingValue)+')'; w.style.display='block'; }
+      else w.style.display='none';
+    }
+    document.getElementById('confirm-modal').classList.add('open');
+  });
   document.getElementById('confirm-yes').addEventListener('click',()=>{ document.getElementById('confirm-modal').classList.remove('open'); executeClose(); });
   document.getElementById('confirm-no').addEventListener('click',()=>{ document.getElementById('confirm-modal').classList.remove('open'); });
   ['close-summary-modal','close-summary-btn'].forEach(id=>{ const el=document.getElementById(id); if(el)el.addEventListener('click',onAfterClose); });
 }
 function executeClose(){
+  // Never close while typed rows are still unsaved — they would miss the archive
+  let unsaved=0, noCost=0;
+  document.querySelectorAll('#wash-tbody tr').forEach(tr=>{
+    const plate=(tr.querySelector('[data-col="plate"]')?.value||'').trim();
+    if(!plate) return;
+    const cost=parseFloat(tr.querySelector('[data-col="cost"]')?.value)||0;
+    const st=tr.dataset.state||'new';
+    if(st==='new'||st==='saving'){ if(cost>0) unsaved++; else noCost++; }
+    else if(tr.dataset.dirty==='true') unsaved++;
+  });
+  if(noCost>0){ toast('⚠ '+noCost+' ჩანაწერს აკლია თანხა — შეავსეთ ან წაშალეთ ნომერი','warning'); return; }
+  if(unsaved>0){ autoSyncGrid(); toast('⏳ ინახება '+unsaved+' ჩანაწერი — სცადეთ რამდენიმე წამში','warning'); return; }
   const btn=document.getElementById('close-shift-btn'); setLoad(btn,true);
   google.script.run
-    .withSuccessHandler(res=>{ setLoad(btn,false); if(res.success){renderShiftModal(res.summary);document.getElementById('summary-modal').classList.add('open');} else toast('შეცდომა: '+res.message,'error'); })
+    .withSuccessHandler(res=>{
+      setLoad(btn,false);
+      if(res.success){
+        if(res.empty){ toast('ცვლა დაიხურა — ჩანაწერები არ იყო, არქივი არ შეიქმნა','info'); onAfterClose(); }
+        else { renderShiftModal(res.summary); document.getElementById('summary-modal').classList.add('open'); }
+      } else toast('შეცდომა: '+res.message,'error');
+    })
     .withFailureHandler(e=>{setLoad(btn,false);toast(e.message,'error');})
     .closeShift(S.managerName);
 }
@@ -1002,11 +1061,14 @@ function renderShiftModal(s){
   setEl('sm-mgr',fmt(s.managerTotal));setEl('sm-expenses',fmt(s.totalExpenses));
   setEl('sm-remain',fmt(s.remainCashCard));setEl('sm-path',s.archivePath||'');
   const al=document.getElementById('sm-archive-url');if(al)al.href=s.archiveUrl||'#';
+  const ml=document.getElementById('sm-monthly-url');
+  if(ml){ if(s.monthlyUrl){ ml.href=s.monthlyUrl; ml.style.display=''; } else ml.style.display='none'; }
   const ba=document.getElementById('sm-bonus-alert');
   if(ba){if(s.bonusReached)ba.classList.add('show');else ba.classList.remove('show');}
 }
 function onAfterClose(){
   document.getElementById('summary-modal').classList.remove('open');
+  localStorage.removeItem('esg_grid_bk');
   if(S.syncTimer){clearInterval(S.syncTimer);S.syncTimer=null;}
   S.managerName=''; S.savedRows=[]; S.lists=null;
   document.getElementById('app').classList.remove('visible');
@@ -1027,12 +1089,116 @@ function bindLogout(){
     document.getElementById('start-shift-screen').classList.remove('visible');
     document.getElementById('manager-name').value='';
     document.getElementById('pin').value='';
-    ['collect-modal','confirm-modal','summary-modal','edit-modal'].forEach(id=>{ const el=document.getElementById(id);if(el)el.classList.remove('open'); });
+    ['confirm-modal','summary-modal'].forEach(id=>{ const el=document.getElementById(id);if(el)el.classList.remove('open'); });
     google.script.run
       .withSuccessHandler(status=>{ if(status&&status.active){S.managerName=status.managerName;showLiveScreen(status);} else showLoginScreen(); })
       .withFailureHandler(()=>showLoginScreen())
       .isShiftActive();
   });
+}
+
+// ── DARK MODE ────────────────────────────────────────────────
+function toggleDarkMode(){
+  const dark=document.body.classList.toggle('dark-mode');
+  localStorage.setItem('esg_dm',dark?'1':'');
+  const btn=document.getElementById('dm-btn');
+  if(btn) btn.textContent=dark?'☀':'🌙';
+}
+
+// ── OFFLINE BACKUP: save full grid to localStorage every 10s ─
+function _backupGridToLocalStorage(){
+  if(!S.managerName) return;
+  // Only snapshot while the work grid is actually on screen — otherwise a
+  // pre-rendered empty grid (login/live screen) would clobber a real backup
+  if(!document.getElementById('app')?.classList.contains('visible')) return;
+  const rows=[];
+  document.querySelectorAll('#wash-tbody tr').forEach(tr=>{
+    const plate=(tr.querySelector('[data-col="plate"]')?.value||'').trim();
+    if(!plate) return;
+    rows.push({
+      plate,
+      carType :tr.querySelector('[data-col="car-type"]')?.value||'',
+      washType:tr.querySelector('[data-col="wash-type"]')?.value||'',
+      box     :tr.querySelector('[data-col="box"]')?.value||'',
+      cost    :tr.querySelector('[data-col="cost"]')?.value||'',
+      payment :tr.querySelector('[data-col="payment"]')?.value||'',
+      loyalty :tr.querySelector('[data-col="loyalty"]')?.value||'',
+      phone   :tr.querySelector('[data-col="phone"]')?.value||'',
+      rowIdx  :tr.dataset.rowIdx||'',
+      state   :tr.dataset.state||'new'
+    });
+  });
+  // Never clobber a non-empty backup with an empty snapshot; the backup is
+  // only ever cleared explicitly when the shift is formally closed
+  if(!rows.length){
+    try{ const old=JSON.parse(localStorage.getItem('esg_grid_bk')||'null'); if(old&&old.rows&&old.rows.length) return; }catch(ex){}
+  }
+  try{ localStorage.setItem('esg_grid_bk',JSON.stringify({ts:Date.now(),manager:S.managerName,rows})); }catch(ex){}
+  _updateResumeBtn();
+}
+
+function _getLocalBackupUnsaved(){
+  try{
+    const bk=JSON.parse(localStorage.getItem('esg_grid_bk')||'null');
+    if(!bk||!Array.isArray(bk.rows)) return [];
+    if(Date.now()-bk.ts>864e5){ localStorage.removeItem('esg_grid_bk'); return []; } // expire 24h
+    return bk.rows.filter(r=>r.state==='new'||!r.rowIdx);
+  }catch(ex){ return []; }
+}
+
+function _restoreLocalBackup(){
+  let unsaved=_getLocalBackupUnsaved();
+  if(!unsaved.length) return;
+  // Dedupe: skip backup rows already saved to the sheet (crash between save and backup tick)
+  const existing=new Set();
+  document.querySelectorAll('#wash-tbody tr:not(.is-empty)').forEach(tr=>{
+    const p=(tr.querySelector('[data-col="plate"]')?.value||'').trim().toUpperCase();
+    const c=parseFloat(tr.querySelector('[data-col="cost"]')?.value)||0;
+    if(p) existing.add(p+'|'+c);
+  });
+  unsaved=unsaved.filter(r=>!existing.has((r.plate||'').trim().toUpperCase()+'|'+(parseFloat(r.cost)||0)));
+  if(!unsaved.length) return;
+  const empties=Array.from(document.querySelectorAll('#wash-tbody tr.is-empty'));
+  let n=0;
+  unsaved.forEach((r,i)=>{
+    if(i>=empties.length) return;
+    const tr=empties[i];
+    const set=(col,val)=>{ const el=tr.querySelector('[data-col="'+col+'"]'); if(el&&val) el.value=val; };
+    const plateEl=tr.querySelector('[data-col="plate"]');
+    if(plateEl){ plateEl.value=r.plate; tr.classList.remove('is-empty'); }
+    set('car-type',r.carType); set('wash-type',r.washType);
+    set('box',r.box); set('cost',r.cost);
+    set('loyalty',r.loyalty); set('phone',r.phone);
+    if(r.payment) set('payment',r.payment);
+    // restore visual classes
+    if(r.washType==='VIP'){
+      tr.querySelector('[data-col="wash-type"]')?.closest('td')?.classList.add('vip-cell');
+      tr.classList.add('is-vip');
+    }
+    const bN=parseInt((r.box||'').replace(/\D/g,''));
+    if(bN>=1&&bN<=4){
+      tr.querySelector('[data-col="box"]')?.closest('td')?.classList.add('bc-'+bN);
+      tr.classList.add('bx-'+bN);
+    }
+    if(r.payment){
+      const pcMap={Cash:'pc-cash',Card:'pc-card',Talon:'pc-talon',Reno:'pc-reno'};
+      const rcMap={Cash:'paid-cash',Card:'paid-card',Talon:'paid-talon',Reno:'paid-reno'};
+      const pc=pcMap[r.payment]; const rc=rcMap[r.payment];
+      if(pc) tr.querySelector('[data-col="payment"]')?.closest('td')?.classList.add(pc);
+      if(rc) tr.classList.add(rc);
+    }
+    tr.dataset.state='new'; tr.dataset.dirty='true';
+    n++;
+  });
+  if(n>0){ updateAll(); toast('📋 '+n+' ჩ. ბექაფიდან აღდგა · ავტო-შენახვა...','info'); }
+}
+
+function _updateResumeBtn(){
+  // Button is always visible on the live screen; badge shows unsaved-row count
+  const sp=document.getElementById('ls-resume-cnt');
+  if(!sp) return;
+  const cnt=_getLocalBackupUnsaved().length;
+  sp.textContent=cnt>0?'('+cnt+' დაუმ.)':'';
 }
 
 // ─── UTILS ────────────────────────────────────────────────────
@@ -1045,7 +1211,7 @@ function setLoad(btn,on){if(!btn)return;if(on){btn._t=btn.innerHTML;btn.innerHTM
 function toast(msg,type){
   type=type||'info';const icons={success:'✓',error:'✕',info:'ℹ',warning:'⚠'};
   const el=document.createElement('div');el.className='toast '+type;
-  el.innerHTML=`<span>${icons[type]}</span><span>${msg}</span>`;
+  el.innerHTML=`<span>${icons[type]}</span><span>${esc(msg)}</span>`;
   document.getElementById('toast-container').appendChild(el);setTimeout(()=>el.remove(),3800);
 }
 </script>

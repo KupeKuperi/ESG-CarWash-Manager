@@ -10,12 +10,12 @@ const ADMIN_VIEW_PIN   = '1234';
 const ROOT_FOLDER_NAME = 'ESGTbilisiMall Daily Sheets';
 
 // ── SALARY RULES ────────────────────────────────────────────
-const MANAGER_BASE            = 100;
+const MANAGER_BASE            = 110;
 const VIP_BONUS_RATE          = 0.10;  // 10% of each VIP wash cost
 const DAILY_BONUS_THRESHOLD   = 1600;
 const DAILY_BONUS             = 50;
 const DAILY_BONUS_THRESHOLD_2 = 2000;
-const DAILY_BONUS_2           = 50;
+const DAILY_BONUS_2           = 25;
 const WASHER_STANDARD_RATE    = 0.35;
 const WASHER_VIP_RATE         = 0.40;
 
@@ -113,6 +113,14 @@ function doGet(e) {
     );
   }
 
+  // ?page=monthly&pin=<ADMIN_VIEW_PIN>[&month=June 2026]  →  (re)build monthly summary sheet(s)
+  if (page === 'monthly') {
+    if ((e.parameter.pin || '') !== ADMIN_VIEW_PIN)
+      return ContentService.createTextOutput('forbidden').setMimeType(ContentService.MimeType.TEXT);
+    return jsonOut_(e.parameter.month ? rebuildMonthlySummary(e.parameter.month)
+                                      : rebuildAllMonthlySummaries());
+  }
+
   if (page === 'live') {
     return HtmlService.createTemplateFromFile('live')
       .evaluate()
@@ -185,11 +193,15 @@ function unlockAdminView(pin) {
 // ── Called when manager clicks "Start Shift" on the confirmation screen ──
 function setShiftStart(managerName) {
   const now = new Date();
+  // Rows left over from an unclosed previous shift — kept (never auto-deleted),
+  // but the manager is warned they will appear in this shift's archive.
+  let leftover = 0;
+  try { leftover = _getDailyEntries().length; } catch(e) {}
   PropertiesService.getScriptProperties().setProperties({
     currentManager : managerName,
     shiftStart     : now.toISOString()
   });
-  return { success: true, startTime: now.toISOString() };
+  return { success: true, startTime: now.toISOString(), leftover: leftover };
 }
 
 // ── Run this ONCE from the Apps Script editor to grant Drive access ──
@@ -210,9 +222,8 @@ function login(managerName, pin) {
     return { success:false, message:'გთხოვთ შეიყვანოთ სახელი' };
   if (pin !== MANAGER_PIN)
     return { success:false, message:'PIN კოდი არასწორია' };
-  const props = PropertiesService.getScriptProperties();
-  props.setProperty('currentManager', managerName.trim());
-  props.setProperty('shiftStart', new Date().toISOString());
+  // Shift state is written ONLY by setShiftStart (the "Start Shift" button).
+  // Logging in must not create a ghost shift or reset an active shift's start time.
   return { success:true, managerName:managerName.trim() };
 }
 
@@ -579,7 +590,13 @@ function addInventorySale(data) {
 function closeShift(managerName) {
   try {
     const entries = _getDailyEntries();
-    if (!entries.length) return { success:false, message:'დღის ჩანაწერები არ მოიძებნა' };
+    if (!entries.length) {
+      // Nothing to archive — still close the shift cleanly instead of dead-ending
+      const p0 = PropertiesService.getScriptProperties();
+      p0.deleteProperty('currentManager');
+      p0.deleteProperty('shiftStart');
+      return { success:true, empty:true };
+    }
 
     const today  = new Date();
     const tz     = Session.getScriptTimeZone();
@@ -675,7 +692,9 @@ function closeShift(managerName) {
       ['სულ ხარჯები',totalExpenses.toFixed(2),'','','','',''],
       ['','','','','','',''],
       ['დარჩენილი','','','','','',''],
-      ['Cash + ბარათი (ხარჯების შემდეგ)',remainCashCard.toFixed(2),'','','','','']
+      ['ქეში (სულ)',cashTotal.toFixed(2),'','','','',''],
+      ['ქეში + ბარათი (სულ)',(cashTotal+cardTotal).toFixed(2),'','','','',''],
+      ['ნარჩენი (ხარჯების შემდეგ)',remainCashCard.toFixed(2),'','','','','']
     ];
     sumSheet.getRange(1,1,summaryRows.length,7).setValues(summaryRows);
     sumSheet.getRange('A1').setFontWeight('bold').setFontSize(13);
@@ -801,19 +820,27 @@ function closeShift(managerName) {
     archSum2.getRange(21, 1, 1, 7)
       .setBackground('#FEF3C7').setFontWeight('bold');
 
-    // Remainder row (last row — row 23)
+    // Cash-only row (row 24) and Cash+Card row (row 25)
+    archSum2.getRange(24, 1, 1, 7).setBackground('#F0FDF4').setFontWeight('bold');
+    archSum2.getRange(25, 1, 1, 7).setBackground('#EFF6FF').setFontWeight('bold');
+    // Net remainder row (last row — row 26): green if positive, red if negative
     archSum2.getRange(summaryRows.length, 1, 1, 7)
-      .setBackground(remainCashCard >= 0 ? '#F0FDF4' : '#FEF2F2')
+      .setBackground(remainCashCard >= 0 ? '#D1FAE5' : '#FEE2E2')
       .setFontWeight('bold').setFontSize(12);
 
     // Number format on the revenue data cells (rows 5-9, cols 2-7)
     archSum2.getRange(5, 2, 5, 6).setNumberFormat('0.00');
+    // Number format on the remainder rows (rows 24-26, col 2)
+    archSum2.getRange(24, 2, 3, 1).setNumberFormat('0.00');
 
     // Borders on revenue and expenses table blocks
-    archSum2.getRange(3, 1, 7, 7)   // revenue section
+    archSum2.getRange(3, 1, 7, 7)   // revenue section (rows 3-9)
       .setBorder(true, true, true, true, true, true,
                  '#CBD5E1', SpreadsheetApp.BorderStyle.SOLID);
-    archSum2.getRange(11, 1, 10, 7) // expenses section
+    archSum2.getRange(11, 1, 11, 7) // expenses section (rows 11-21)
+      .setBorder(true, true, true, true, true, true,
+                 '#CBD5E1', SpreadsheetApp.BorderStyle.SOLID);
+    archSum2.getRange(23, 1, 4, 7)  // remainder section (rows 23-26)
       .setBorder(true, true, true, true, true, true,
                  '#CBD5E1', SpreadsheetApp.BorderStyle.SOLID);
 
@@ -825,13 +852,27 @@ function closeShift(managerName) {
 
     // ── Move archive into Drive folder ─────────────────────────
     let archivePath = archiveName + ' (Drive root)';
+    let monthlyUrl  = '';
     try {
-      const rootIter   = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
-      const rootFolder = rootIter.hasNext() ? rootIter.next() : DriveApp.createFolder(ROOT_FOLDER_NAME);
+      const rootFolder = _getRootFolder();
       const mthIter    = rootFolder.getFoldersByName(monthFolderName);
       const mthFolder  = mthIter.hasNext() ? mthIter.next() : rootFolder.createFolder(monthFolderName);
       DriveApp.getFileById(archiveSS.getId()).moveTo(mthFolder);
       archivePath = ROOT_FOLDER_NAME + ' / ' + monthFolderName + ' / ' + archiveName;
+
+      // Keep the month's running summary current — must never block the close
+      try {
+        monthlyUrl = _updateMonthlySummary(mthFolder, monthFolderName, {
+          date: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+          manager: managerName, washes: entries.length, vip: byType['VIP'].count,
+          cash: cashTotal, card: cardTotal, talon: talonValue, reno: renoValue, pending: pendingTotal,
+          revenue: totalRevenue, washers: washerTotal, managerPay: managerTotal,
+          expenses: totalExpenses, net: remainCashCard,
+          b1: boxSalaries['Box 1'], b2: boxSalaries['Box 2'], b3: boxSalaries['Box 3'], b4: boxSalaries['Box 4'],
+          w1: boxWashes['Box 1'],   w2: boxWashes['Box 2'],   w3: boxWashes['Box 3'],   w4: boxWashes['Box 4'],
+          fileId: archiveSS.getId(), url: archiveSS.getUrl(), name: archiveName, created: Date.now()
+        });
+      } catch(mErr) { Logger.log('Monthly summary skipped: ' + mErr.message); }
     } catch(driveErr) {
       Logger.log('Drive folder skipped: ' + driveErr.message);
     }
@@ -859,7 +900,8 @@ function closeShift(managerName) {
         totalExpenses, remainCashCard,
         bonusReached: dailyBonus>0,
         archivePath : archivePath,
-        archiveUrl  : archiveSS.getUrl()
+        archiveUrl  : archiveSS.getUrl(),
+        monthlyUrl  : monthlyUrl
       }
     };
   } catch(e) { return { success:false, message:e.message }; }
@@ -868,6 +910,303 @@ function closeShift(managerName) {
 function _typeRow(key, byType) {
   const t = byType[key];
   return [key, t.count, t.cash, t.card, t.talon, t.cash+t.card+t.talon, t.pending];
+}
+
+// ============================================================
+//  MONTHLY SUMMARY  —  "ESGMonthlyMall <Month Year>" inside each month folder
+//  One row per closed shift (a date repeats when a shift was closed twice —
+//  each archive holds distinct washes, so both count). Kept current by
+//  closeShift(); rebuilt from the daily archives via rebuildMonthlySummary().
+// ============================================================
+const MONTHLY_PREFIX = 'ESGMonthlyMall ';
+const DAILY_PREFIX   = 'ESGDailyMall ';
+
+// Column order is shared by the writer and the read-back parser — keep in sync
+const MCOLS = ['date','manager','washes','vip','cash','card','talon','reno','pending',
+               'revenue','washers','managerPay','expenses','net','link','fileId',
+               'b1','b2','b3','b4','w1','w2','w3','w4'];
+const MHDRS = ['თარიღი','მენეჯერი','მობანება','VIP','ქეში','ბარათი','ტალონი','Reno','ტაბი',
+               'სულ შემოსავალი','მრეცხავები','მენეჯერი ₾','სულ ხარჯები','ნარჩენი','ფაილი','ID',
+               'Box 1 ₾','Box 2 ₾','Box 3 ₾','Box 4 ₾','Box 1 რეცხ.','Box 2 რეცხ.','Box 3 რეცხ.','Box 4 რეცხ.'];
+const M_HDR_ROW = 8;   // header row of the day table in the Summary tab (rows 3-6 = KPI block)
+
+function _getRootFolder() {
+  const it = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
+  return it.hasNext() ? it.next() : DriveApp.createFolder(ROOT_FOLDER_NAME);
+}
+
+// Serializes every monthly-sheet write. A browser can fetch the ?page=monthly URL
+// twice in parallel (prefetch), and two unsynchronized rebuilds each create their
+// own file.
+function _withMonthlyLock(fn) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(180000);
+  try { return fn(); } finally { lock.releaseLock(); }
+}
+
+// Exactly one "ESGMonthlyMall <month>" per folder: keep the oldest copy, trash extras
+// (generated files — rebuildable from the archives, recoverable from Drive trash).
+function _getOrCreateMonthlySS(folder, monthName) {
+  const name = MONTHLY_PREFIX + monthName;
+  const it   = folder.getFilesByName(name);
+  const found = [];
+  while (it.hasNext()) found.push(it.next());
+  if (found.length) {
+    found.sort((a, b) => a.getDateCreated() - b.getDateCreated());
+    found.slice(1).forEach(f => { try { f.setTrashed(true); } catch(e) {} });
+    return SpreadsheetApp.openById(found[0].getId());
+  }
+  const ss = SpreadsheetApp.create(name);
+  DriveApp.getFileById(ss.getId()).moveTo(folder);
+  return ss;
+}
+
+// Rebuild one month from its daily archives. monthName = folder name, e.g. "June 2026".
+function rebuildMonthlySummary(monthName) {
+  return _withMonthlyLock(() => _rebuildMonthlyUnlocked(monthName));
+}
+
+function rebuildAllMonthlySummaries() {
+  return _withMonthlyLock(() => {
+    const it = _getRootFolder().getFolders();
+    const names = [];
+    while (it.hasNext()) names.push(it.next().getName());
+    names.sort((a, b) => new Date('1 ' + a) - new Date('1 ' + b));
+    return { success:true, months: names.map(_rebuildMonthlyUnlocked) };
+  });
+}
+
+function _rebuildMonthlyUnlocked(monthName) {
+  try {
+    const it = _getRootFolder().getFoldersByName(monthName);
+    if (!it.hasNext()) return { success:false, message:'Folder not found: ' + monthName };
+    const folder  = it.next();
+    const files   = folder.getFilesByType(MimeType.GOOGLE_SHEETS);
+    const records = [], errors = [];
+    while (files.hasNext()) {
+      const f = files.next();
+      if (f.getName().indexOf(DAILY_PREFIX) !== 0) continue;
+      try { records.push(_extractDayRecord(f)); }
+      catch(e) { errors.push(f.getName() + ': ' + e.message); }
+    }
+    const mss = _getOrCreateMonthlySS(folder, monthName);
+    const T   = _writeMonthlyWorkbook(mss, monthName, records);
+    return { success:true, month:monthName, shifts:records.length, revenue:T.revenue,
+             cash:T.cash, card:T.card, expenses:T.expenses, net:T.net, errors, url:mss.getUrl() };
+  } catch(e) { return { success:false, month:monthName, message:e.message }; }
+}
+
+// Incremental path used by closeShift: read the month table back, replace/append
+// today's row, rewrite. Falls back to a full rebuild if the sheet is new or its
+// layout predates MHDRS. Returns the monthly sheet URL.
+function _updateMonthlySummary(folder, monthName, rec) {
+  return _withMonthlyLock(() => {
+    const mss = _getOrCreateMonthlySS(folder, monthName);
+    let records = _readMonthlyRecords(mss);
+    if (!records) { _rebuildMonthlyUnlocked(monthName); return mss.getUrl(); }
+    records = records.filter(r => r.fileId !== rec.fileId);
+    records.push(rec);
+    _writeMonthlyWorkbook(mss, monthName, records);
+    return mss.getUrl();
+  });
+}
+
+// Parse one daily archive's Summary tab into a day record. Label-based lookup,
+// so it tolerates row shifts between archive versions.
+function _extractDayRecord(file) {
+  const sh = SpreadsheetApp.openById(file.getId()).getSheetByName('Summary');
+  if (!sh) throw new Error('Summary tab missing');
+  const v    = sh.getDataRange().getValues();
+  const row  = lbl => v.find(r => String(r[0]).trim() === lbl) || [];
+  const rowP = pre => v.find(r => String(r[0]).trim().indexOf(pre) === 0) || [];
+  const num  = x => parseFloat(String(x === undefined ? '' : x).replace(/[^\d.\-]/g, '')) || 0;
+  const pair = s => { const m = String(s || '').match(/([\d.]+)\s*ერთ\.?\s*\/\s*([\d.]+)/);
+                      return m ? { n:+m[1] || 0, v:+m[2] || 0 } : { n:0, v:0 }; };
+
+  // Title: "ESGDailyMall  ·  MANAGER  ·  dd/MM/yyyy"; fallback: file name "ESGDailyMall dd/MM/yy"
+  const tm = String(v[0][0]).match(/·\s*(.+?)\s*·\s*(\d{2})\/(\d{2})\/(\d{4})/);
+  let manager = tm ? tm[1].trim() : '';
+  let date    = tm ? new Date(+tm[4], +tm[3] - 1, +tm[2]) : null;
+  if (!date) {
+    const fm = file.getName().match(/(\d{2})\/(\d{2})\/(\d{2})\s*$/);
+    if (fm) date = new Date(2000 + +fm[3], +fm[2] - 1, +fm[1]);
+  }
+  if (!date || isNaN(date.getTime())) throw new Error('date not found');
+
+  const tot = row('სულ'), vip = row('VIP'), mgr = rowP('მენეჯერი');
+  const box = n => row('მრეცხავები – Box ' + n);
+  const rec = {
+    date, manager,
+    washes : num(tot[1]), vip: num(vip[1]),
+    cash   : num(tot[2]), card: num(tot[3]),
+    talon  : pair(row('ტალონი')[1]).v,
+    reno   : pair(row('Reno')[1]).v,
+    pending: num(tot[6]),
+    revenue: num(tot[5]),
+    b1: num(box(1)[1]), b2: num(box(2)[1]), b3: num(box(3)[1]), b4: num(box(4)[1]),
+    w1: num(box(1)[4]), w2: num(box(2)[4]), w3: num(box(3)[4]), w4: num(box(4)[4]),
+    managerPay: num(mgr[4]),
+    expenses  : num(row('სულ ხარჯები')[1]),
+    fileId: file.getId(), url: file.getUrl(), name: file.getName(),
+    created: file.getDateCreated().getTime()
+  };
+  rec.washers = rec.b1 + rec.b2 + rec.b3 + rec.b4;
+  rec.net     = rec.cash + rec.card - rec.expenses;
+  return rec;
+}
+
+// Read the day table back from an existing monthly sheet. null → needs full rebuild.
+function _readMonthlyRecords(mss) {
+  const sh = mss.getSheetByName('Summary');
+  if (!sh) return null;
+  const v  = sh.getDataRange().getValues();
+  const hi = v.findIndex(r => r[0] === MHDRS[0] && r[1] === MHDRS[1]);
+  if (hi < 0) return null;
+  for (let c = 0; c < MHDRS.length; c++) if (v[hi][c] !== MHDRS[c]) return null;
+  const recs = [];
+  for (let i = hi + 1; i < v.length; i++) {
+    const r = v[i];
+    if (Object.prototype.toString.call(r[0]) !== '[object Date]') break;   // totals row / blank → end of table
+    const o = {};
+    MCOLS.forEach((k, c) => { o[k] = r[c]; });
+    o.name = String(o.link || ''); delete o.link;
+    o.url  = 'https://docs.google.com/spreadsheets/d/' + o.fileId;
+    o.created = 0;
+    recs.push(o);
+  }
+  return recs;
+}
+
+function _freshSheet(mss, name, idx) {
+  let sh = mss.getSheetByName(name);
+  if (!sh) {
+    const all = mss.getSheets();
+    if (idx === 0 && all.length === 1 && all[0].getLastRow() === 0) { sh = all[0]; sh.setName(name); }
+    else sh = mss.insertSheet(name, idx);
+  }
+  sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), Math.max(sh.getLastColumn(), 1)).breakApart();
+  sh.clear();
+  return sh;
+}
+
+// Writes both tabs from scratch. Returns the month totals.
+function _writeMonthlyWorkbook(mss, monthName, records) {
+  const tz = Session.getScriptTimeZone();
+  try { mss.setSpreadsheetTimeZone(tz); } catch(e) {}
+  records.sort((a, b) => (a.date - b.date) || ((a.created || 0) - (b.created || 0)));
+  const days = records.length;
+  const T = {};
+  ['washes','vip','cash','card','talon','reno','pending','revenue','washers','managerPay',
+   'expenses','net','b1','b2','b3','b4','w1','w2','w3','w4']
+    .forEach(k => { T[k] = records.reduce((s, r) => s + (parseFloat(r[k]) || 0), 0); });
+  const best = records.reduce((b, r) => (!b || r.revenue > b.revenue) ? r : b, null);
+  const BORDER = r => r.setBorder(true, true, true, true, true, true, '#CBD5E1', SpreadsheetApp.BorderStyle.SOLID);
+
+  // ════ Tab 1: Summary ════════════════════════════════════════
+  const sh = _freshSheet(mss, 'Summary', 0);
+  const NC = MHDRS.length;
+  const pad = a => a.concat(new Array(NC - a.length).fill(''));
+  const kpi1L = ['სულ შემოსავალი','ქეში','ბარათი','ქეში + ბარათი','ტალონი','Reno','ტაბი','სულ ხარჯები','ნარჩენი','მობანება'];
+  const kpi1V = [T.revenue, T.cash, T.card, T.cash + T.card, T.talon, T.reno, T.pending, T.expenses, T.net, T.washes];
+  const kpi2L = ['ცვლები','საშ. შემოსავალი / ცვლა','VIP','მრეცხავები სულ','მენეჯერები სულ','საუკეთესო დღე'];
+  const kpi2V = [days, days ? T.revenue / days : 0, T.vip, T.washers, T.managerPay,
+                 best ? Utilities.formatDate(best.date, tz, 'dd/MM') + '  ·  ' + best.revenue.toFixed(2) + ' ₾' : '—'];
+  const rows = [
+    pad(['ESGMonthlyMall  ·  ' + monthName]),
+    pad([]), pad(kpi1L), pad(kpi1V), pad(kpi2L), pad(kpi2V), pad([]),
+    MHDRS.slice()
+  ];
+  records.forEach(r => rows.push(MCOLS.map(k =>
+    k === 'link' ? (r.name || '') : (r[k] === undefined || r[k] === null ? '' : r[k]))));
+  rows.push(['სულ', days + ' ცვლა', T.washes, T.vip, T.cash, T.card, T.talon, T.reno, T.pending,
+             T.revenue, T.washers, T.managerPay, T.expenses, T.net, '', '',
+             T.b1, T.b2, T.b3, T.b4, T.w1, T.w2, T.w3, T.w4]);
+  sh.getRange(1, 1, rows.length, NC).setValues(rows);
+
+  const first = M_HDR_ROW + 1, totRow = first + days;
+  const col   = k => MCOLS.indexOf(k) + 1;
+  const MONEY = ['cash','card','talon','reno','pending','revenue','washers','managerPay','expenses','net','b1','b2','b3','b4'];
+  const COUNT = ['washes','vip','w1','w2','w3','w4'];
+  if (days) {
+    sh.getRange(first, col('link'), days, 1).setRichTextValues(records.map(r =>
+      [SpreadsheetApp.newRichTextValue().setText(r.name || 'ფაილი').setLinkUrl(r.url || null).build()]));
+    sh.getRange(first, 1, days, NC).setBackgrounds(records.map((r, i) => new Array(NC).fill(i % 2 ? '#FAFAFA' : '#FFFFFF')));
+    sh.getRange(first, col('revenue'), days, 1).setFontWeight('bold');
+    sh.getRange(first, col('fileId'), days, 1).setFontColor('#9CA3AF').setFontSize(8);
+  }
+  const fmtRow = MCOLS.map(k => k === 'date' ? 'dd/MM/yyyy' : MONEY.indexOf(k) >= 0 ? '#,##0.00' : COUNT.indexOf(k) >= 0 ? '0' : '@');
+  const fmts = []; for (let i = 0; i <= days; i++) fmts.push(fmtRow.slice());
+  fmts[days][0] = '@';
+  sh.getRange(first, 1, days + 1, NC).setNumberFormats(fmts);
+
+  sh.getRange(1, 1, 1, NC).merge().setBackground('#1A2132').setFontColor('#E2EAF4')
+    .setFontSize(13).setFontWeight('bold').setHorizontalAlignment('center');
+  sh.setRowHeight(1, 36);
+  sh.getRange(3, 1, 1, kpi1L.length).setBackground('#E8ECF2').setFontWeight('bold').setFontSize(9).setWrap(true).setVerticalAlignment('middle');
+  sh.getRange(5, 1, 1, kpi2L.length).setBackground('#E8ECF2').setFontWeight('bold').setFontSize(9).setWrap(true).setVerticalAlignment('middle');
+  sh.setRowHeight(3, 34); sh.setRowHeight(5, 34);
+  sh.getRange(4, 1, 1, kpi1V.length).setFontWeight('bold').setFontSize(12).setNumberFormat('#,##0.00');
+  sh.getRange(4, 10).setNumberFormat('0');
+  sh.getRange(4, 1).setBackground('#EBF5FB');
+  sh.getRange(4, 9).setBackground(T.net >= 0 ? '#D1FAE5' : '#FEE2E2');
+  sh.getRange(6, 1, 1, kpi2V.length).setFontWeight('bold').setFontSize(12).setNumberFormat('#,##0.00');
+  sh.getRange(6, 1).setNumberFormat('0'); sh.getRange(6, 3).setNumberFormat('0');
+  BORDER(sh.getRange(3, 1, 4, kpi1L.length));
+  sh.getRange(M_HDR_ROW, 1, 1, NC).setBackground('#2C3A50').setFontColor('#FFFFFF')
+    .setFontWeight('bold').setFontSize(10).setHorizontalAlignment('center');
+  sh.setRowHeight(M_HDR_ROW, 26);
+  sh.getRange(totRow, 1, 1, NC).setBackground('#FEF3C7').setFontWeight('bold');
+  sh.getRange(totRow, col('net')).setBackground(T.net >= 0 ? '#D1FAE5' : '#FEE2E2');
+  BORDER(sh.getRange(M_HDR_ROW, 1, days + 2, NC));
+  sh.setFrozenRows(M_HDR_ROW);
+  [92,100,80,60,90,90,85,85,85,110,95,95,100,95,150,60,75,75,75,75,85,85,85,85]
+    .forEach((w, i) => sh.setColumnWidth(i + 1, w));
+
+  // ════ Tab 2: Salaries (washers per box + managers) ══════════
+  const s2 = _freshSheet(mss, 'Salaries', 1);
+  const wTot = T.w1 + T.w2 + T.w3 + T.w4;
+  // Managers type their name at login ("DATO" / "dato" / "Dato") — group case-insensitively
+  const byMgr = {};
+  records.forEach(r => {
+    const k = String(r.manager || '—').trim().toUpperCase() || '—';
+    byMgr[k] = byMgr[k] || { d:0, pay:0, rev:0 };
+    byMgr[k].d++; byMgr[k].pay += parseFloat(r.managerPay) || 0; byMgr[k].rev += parseFloat(r.revenue) || 0;
+  });
+  const mgrNames = Object.keys(byMgr).sort((a, b) => byMgr[b].pay - byMgr[a].pay);
+  const r2 = [
+    ['ESGMonthlyMall  ·  ' + monthName + '  ·  ხელფასები', '', '', '', ''],
+    ['', '', '', '', ''],
+    ['მრეცხავები — ბოქსების ხელფასი', '', '', '', ''],
+    ['ბოქსი', 'ხელფასი ₾', 'რეცხვები', 'საშ. ₾ / რეცხვა', '']
+  ];
+  [1, 2, 3, 4].forEach(n => { const s = T['b' + n], w = T['w' + n]; r2.push(['Box ' + n, s, w, w ? s / w : 0, '']); });
+  r2.push(['სულ', T.washers, wTot, wTot ? T.washers / wTot : 0, '']);
+  r2.push(['', '', '', '', '']);
+  r2.push(['მენეჯერები', '', '', '', '']);
+  r2.push(['მენეჯერი', 'ცვლები', 'ხელფასი ₾', 'შემოსავალი ₾', 'საშ. შემოსავალი / ცვლა']);
+  const mgrFirst = r2.length + 1;
+  mgrNames.forEach(k => { const m = byMgr[k]; r2.push([k, m.d, m.pay, m.rev, m.d ? m.rev / m.d : 0]); });
+  r2.push(['სულ', days, T.managerPay, T.revenue, days ? T.revenue / days : 0]);
+  s2.getRange(1, 1, r2.length, 5).setValues(r2);
+
+  s2.getRange(1, 1, 1, 5).merge().setBackground('#1A2132').setFontColor('#E2EAF4')
+    .setFontSize(13).setFontWeight('bold').setHorizontalAlignment('center');
+  s2.setRowHeight(1, 36);
+  [3, 11].forEach(r => { s2.getRange(r, 1, 1, 5).merge().setBackground('#2C3A50').setFontColor('#FFFFFF').setFontWeight('bold'); s2.setRowHeight(r, 26); });
+  [4, 12].forEach(r => s2.getRange(r, 1, 1, 5).setBackground('#E8ECF2').setFontWeight('bold').setFontSize(10));
+  s2.getRange(5, 2, 5, 3).setNumberFormat('#,##0.00');
+  s2.getRange(5, 3, 5, 1).setNumberFormat('0');
+  s2.getRange(9, 1, 1, 5).setBackground('#FEF3C7').setFontWeight('bold');
+  const mgrRows = mgrNames.length + 1;
+  s2.getRange(mgrFirst, 2, mgrRows, 4).setNumberFormat('#,##0.00');
+  s2.getRange(mgrFirst, 2, mgrRows, 1).setNumberFormat('0');
+  s2.getRange(mgrFirst + mgrRows - 1, 1, 1, 5).setBackground('#FEF3C7').setFontWeight('bold');
+  BORDER(s2.getRange(3, 1, 7, 5));
+  BORDER(s2.getRange(11, 1, mgrRows + 2, 5));
+  [200, 110, 100, 130, 170].forEach((w, i) => s2.setColumnWidth(i + 1, w));
+  s2.setFrozenRows(1);
+
+  return T;
 }
 
 // ============================================================

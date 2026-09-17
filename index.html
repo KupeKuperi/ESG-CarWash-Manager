@@ -8,6 +8,9 @@
 </head>
 <body>
 
+<!-- Offline indicator (shown after repeated sync failures / browser offline) -->
+<div id="offline-banner">📡 კავშირი არ არის — მონაცემები ლოკალურად ინახება და ავტომატურად აიტვირთება</div>
+
 <!-- ═══════════════════════════════ LOGIN ═══════════════════════════════ -->
 <div id="login-screen">
   <div class="login-card">
@@ -167,6 +170,9 @@
 
   <!-- Floating buttons -->
   <div class="ls-float-btns">
+    <button class="ls-resume-btn" id="ls-resume-btn" onclick="showResumePinOverlay()">
+      📋 სამუშაოს გაგრძელება <span id="ls-resume-cnt"></span>
+    </button>
     <button class="ls-close-shift-btn" id="live-close-btn" onclick="closeLiveShift()">🔒 ცვლის დახურვა</button>
     <button class="ls-admin-btn" id="admin-access-btn" onclick="showAdminPinOverlay()">🔐 Admin</button>
   </div>
@@ -176,9 +182,9 @@
 <!-- Admin PIN Overlay -->
 <div class="modal-overlay" id="admin-pin-overlay">
   <div class="modal" style="width:320px;text-align:center">
-    <div style="font-size:36px;margin-bottom:10px">🔐</div>
-    <h2 style="margin-bottom:6px">Admin View</h2>
-    <p style="color:var(--text-3);font-size:13px;margin-bottom:18px">Admin PIN შეიყვანეთ</p>
+    <div style="font-size:36px;margin-bottom:10px" id="pin-ov-icon">🔐</div>
+    <h2 style="margin-bottom:6px" id="pin-ov-title">Admin View</h2>
+    <p style="color:var(--text-3);font-size:13px;margin-bottom:18px" id="pin-ov-sub">Admin PIN შეიყვანეთ</p>
     <div class="fg" style="margin-bottom:10px">
       <input type="password" id="admin-pin-input" placeholder="••••" maxlength="6"
              inputmode="numeric"
@@ -255,6 +261,7 @@
 
     <!-- Actions -->
     <div class="hdr-actions">
+      <button class="btn btn-ghost btn-sm" id="dm-btn" onclick="toggleDarkMode()" title="Dark / Light Mode" style="font-size:17px;padding:4px 7px;line-height:1">🌙</button>
       <button class="btn btn-outline btn-sm" id="logout-btn">↩ გამოსვლა</button>
       <button class="btn btn-primary" id="close-shift-btn">🔒 ცვლის დახურვა</button>
     </div>
@@ -341,6 +348,7 @@
         <div class="sum-card"       ><div class="sum-card-label">სულ მობანება</div>  <div class="sum-card-value" id="sv-washes">—</div></div>
         <div class="sum-card green" ><div class="sum-card-label">ქეში</div>          <div class="sum-card-value" id="sv-cash">—</div></div>
         <div class="sum-card"       ><div class="sum-card-label">ბარათი</div>        <div class="sum-card-value" id="sv-card">—</div></div>
+        <div class="sum-card"       style="border-color:#0EA5E9"><div class="sum-card-label" style="color:#0EA5E9">ქეში + ბარათი</div><div class="sum-card-value" id="sv-cash-card" style="color:#0EA5E9">—</div></div>
         <div class="sum-card amber" ><div class="sum-card-label">ტალონი</div>        <div class="sum-card-value" id="sv-talon">—</div></div>
         <div class="sum-card"       ><div class="sum-card-label">Reno</div>           <div class="sum-card-value" id="sv-reno">—</div></div>
         <div class="sum-card amber" ><div class="sum-card-label">გადაუხდელი</div>   <div class="sum-card-value" id="sv-pending">—</div></div>
@@ -356,7 +364,7 @@
 
       <div class="sum-section">მენეჯერის ხელფასი</div>
       <table class="sum-table">
-        <tr><td>ბაზა</td><td id="sv-mgr-base">175.00₾</td></tr>
+        <tr><td>ბაზა</td><td id="sv-mgr-base">110.00₾</td></tr>
         <tr><td>VIP ბონუსი</td><td id="sv-mgr-vip">—</td></tr>
         <tr><td>დღის ბონუსი (≥1,600₾)</td><td id="sv-mgr-bonus">—</td></tr>
         <tr class="total-r"><td>სულ</td><td id="sv-mgr-total">—</td></tr>
@@ -382,75 +390,6 @@
 
 <!-- ══════════════════════════ MODALS ════════════════════════════════ -->
 
-<!-- Edit Entry Modal -->
-<div class="modal-overlay" id="edit-modal">
-  <div class="modal" style="width:480px">
-    <div class="modal-hdr">
-      <span class="modal-title">✏ ჩანაწერის რედაქტირება</span>
-      <button class="modal-close" id="close-edit-modal">✕</button>
-    </div>
-    <form id="edit-form">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-        <div><label>ნომ.</label>
-          <input type="text" id="edit-plate" required style="text-transform:uppercase"></div>
-        <div><label>მანქანა</label>
-          <select id="edit-car-type">
-            <option>სედანი</option><option>ჯიპი</option><option>ჯიპი XL</option>
-          </select></div>
-        <div><label>რეცხვა</label>
-          <select id="edit-wash-type">
-            <option>სტანდარტი</option><option>VIP</option><option>შიგნიდან</option>
-            <option>გარედან</option><option>ორივე</option><option>სხვა</option>
-          </select></div>
-        <div><label>ბოქსი</label>
-          <select id="edit-box">
-            <option>Box 1</option><option>Box 2</option><option>Box 3</option><option>Box 4</option>
-          </select></div>
-        <div><label>თანხა (₾)</label>
-          <input type="number" id="edit-cost" min="0" step="1" required></div>
-        <div><label>გადახდა</label>
-          <select id="edit-payment">
-            <option>Cash</option><option>Card</option><option>Talon</option>
-          </select></div>
-        <div><label>ლოიალობა</label>
-          <input type="text" id="edit-loyalty" placeholder="კოდი"></div>
-        <div><label>ტელეფონი</label>
-          <input type="text" id="edit-phone" placeholder="+995..."></div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button type="submit" class="btn btn-primary" id="save-edit-btn">✓ შენახვა</button>
-        <button type="button" class="btn btn-outline" onclick="closeEditModal()">გაუქმება</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- Collect Payment -->
-<div class="modal-overlay" id="collect-modal">
-  <div class="modal" style="width:320px">
-    <div class="modal-hdr">
-      <span class="modal-title" id="collect-modal-title">💰 გადახდა</span>
-      <button class="modal-close" onclick="closeCollectModal()">✕</button>
-    </div>
-    <p style="font-size:12px;color:var(--text-3);margin-bottom:14px">გადახდის მეთოდი:</p>
-    <div class="pay-option-grid">
-      <div class="pay-option" onclick="selectPay('Cash')">
-        <span class="po-icon">💵</span><span class="po-lbl">Cash</span>
-      </div>
-      <div class="pay-option" onclick="selectPay('Card')">
-        <span class="po-icon">💳</span><span class="po-lbl">ბარათი</span>
-      </div>
-      <div class="pay-option" onclick="selectPay('Talon')">
-        <span class="po-icon">🎫</span><span class="po-lbl">ტალონი</span>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-primary" id="confirm-pay-btn" style="flex:1" disabled onclick="onConfirmPay()">✓ დასტური</button>
-      <button class="btn btn-outline" onclick="closeCollectModal()">გაუქმება</button>
-    </div>
-  </div>
-</div>
-
 <!-- Confirm Close Shift -->
 <div class="modal-overlay" id="confirm-modal">
   <div class="modal" style="width:340px;text-align:center">
@@ -459,6 +398,7 @@
     <p style="color:var(--text-3);margin-bottom:20px;font-size:13px">
       ყველა მონაცემი Summary-ში დაფიქსირდება, Drive-ში დაარქივდება და Daily გასუფთავდება.
     </p>
+    <p id="confirm-pending-warn" style="display:none;background:#FEF3C7;color:#92400E;font-weight:700;font-size:13px;padding:8px 12px;border-radius:8px;margin-bottom:16px"></p>
     <div style="display:flex;gap:8px;justify-content:center">
       <button class="btn btn-primary" id="confirm-yes">დიახ, დახურვა</button>
       <button class="btn btn-outline" id="confirm-no">გაუქმება</button>
@@ -494,6 +434,7 @@
       📁 <span id="sm-path"></span>
     </div>
     <a class="archive-link" id="sm-archive-url" href="#" target="_blank">📄 Archive Sheet</a>
+    <a class="archive-link" id="sm-monthly-url" href="#" target="_blank" style="display:none;margin-left:8px">📊 თვის შედეგები</a>
     <button class="btn btn-primary btn-full" id="close-summary-btn" style="margin-top:14px">✓ კარგი</button>
   </div>
 </div>

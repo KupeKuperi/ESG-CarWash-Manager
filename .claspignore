@@ -3,3 +3,4 @@ script.js
 README.md
 .git/**
 node_modules/**
+dev-preview/**

@@ -484,7 +484,7 @@ select{cursor:pointer;appearance:none;
 /* ============================================================
    MODALS
    ============================================================ */
-.modal-overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.4);
+.modal-overlay{position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.4);
   display:none;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
 .modal-overlay.open{display:flex}
 .modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;
@@ -534,6 +534,11 @@ select{cursor:pointer;appearance:none;
 .archive-link:hover{background:#D1FAE5}
 
 /* ── TOAST ── */
+#offline-banner{position:fixed;top:0;left:0;right:0;z-index:9500;display:none;
+  background:#DC2626;color:#fff;font-weight:700;font-size:13px;text-align:center;
+  padding:8px 12px;font-family:var(--font);box-shadow:0 2px 12px rgba(220,38,38,.45)}
+#offline-banner.show{display:block}
+
 #toast-container{position:fixed;bottom:18px;right:18px;z-index:9999;
   display:flex;flex-direction:column;gap:6px;pointer-events:none}
 .toast{display:flex;align-items:center;gap:8px;padding:10px 14px;
@@ -667,6 +672,19 @@ select{cursor:pointer;appearance:none;
 /* ── Floating button row ── */
 .ls-float-btns{position:fixed;bottom:24px;right:24px;z-index:960;
   display:flex;align-items:center;gap:10px}
+
+.ls-resume-btn{
+  display:flex;align-items:center;gap:6px;padding:10px 22px;
+  background:rgba(245,158,11,.15);border:1.5px solid rgba(245,158,11,.55);
+  border-radius:22px;color:#F59E0B;font-size:13px;font-weight:700;
+  cursor:pointer;transition:all .2s ease;font-family:var(--font);
+  backdrop-filter:blur(6px);animation:resumePulse 2s ease-in-out infinite}
+.ls-resume-btn:hover{background:rgba(245,158,11,.3);border-color:#F59E0B;
+  box-shadow:0 4px 20px rgba(245,158,11,.4);transform:translateY(-1px);animation:none}
+#ls-resume-cnt{font-size:11px;opacity:.85;font-weight:600}
+@keyframes resumePulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.0)}
+  50%{box-shadow:0 0 0 6px rgba(245,158,11,.25)}}
 
 .ls-admin-btn{
   padding:10px 22px;
@@ -811,3 +829,159 @@ select{cursor:pointer;appearance:none;
   display:flex;align-items:center;justify-content:center;
   transition:all .15s ease;font-family:var(--font)}
 .sn-close:hover{background:rgba(220,38,38,.2);border-color:rgba(220,38,38,.5);color:#F87171}
+
+/* ============================================================
+   DARK MODE  (class toggled on body via toggleDarkMode())
+   ============================================================ */
+body.dark-mode {
+  --page-bg:    #0F1117;
+  --surface:    #1A1D24;
+  --surface-2:  #1E2230;
+  --surface-3:  #252938;
+  --border:     #2D3147;
+  --border-md:  #383D55;
+  --border-dk:  #4E546E;
+  --text:       #E2E8F0;
+  --text-2:     #CBD5E1;
+  --text-3:     #8A9BBE;
+  --text-4:     #5A6A85;
+  --grid-head:  #1E2233;
+  --grid-row:   #1A1D24;
+  --grid-alt:   #1D2030;
+  --grid-hover: #222638;
+  --row-pending:#27220E;
+  --row-cash:   #162318;
+  --row-card:   #131A2E;
+  --row-talon:  #252210;
+  --cash-bg:    rgba(16,185,129,.1);
+  --cash-bdr:   rgba(16,185,129,.3);
+  --card-bg:    rgba(96,165,250,.08);
+  --card-bdr:   rgba(96,165,250,.3);
+  --talon-bg:   rgba(251,191,36,.08);
+  --talon-bdr:  rgba(251,191,36,.3);
+  --vip-bg:     rgba(251,191,36,.1);
+  --vip-bdr:    rgba(251,191,36,.4);
+  --pending-bg: rgba(245,158,11,.08);
+  --danger-bg:  rgba(248,113,113,.08);
+  --esg-glow:   rgba(0,140,207,.2);
+}
+
+/* ── Global form controls ── */
+body.dark-mode input[type="text"],
+body.dark-mode input[type="password"],
+body.dark-mode input[type="number"],
+body.dark-mode select,
+body.dark-mode textarea{
+  background:var(--surface-2);border-color:var(--border-md);color:var(--text)}
+
+/* ── Excel grid head ── */
+body.dark-mode .egrid thead th{background:#1E2233;border-color:#2D3147;color:#8A9BBE}
+body.dark-mode .egrid thead th.col-num{background:#171A28}
+
+/* ── Grid cell borders + row number ── */
+body.dark-mode .egrid tbody td{border-right-color:#2D3147;border-bottom-color:#2D3147}
+body.dark-mode .egrid tbody td.col-num{background:#171A28!important;border-right-color:#383D55!important;color:#5A6A85}
+body.dark-mode .egrid tbody tr.is-empty td:not(.col-num){background:#161920}
+body.dark-mode .egrid tbody tr:not(.is-empty):hover td:not(.col-num){background:#222638}
+
+/* ── Grid inputs & selects ── */
+body.dark-mode .egrid td input,
+body.dark-mode .egrid td select{color:#E2E8F0}
+body.dark-mode .egrid td input::placeholder{color:#3A4560}
+body.dark-mode .egrid td select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235A6A85' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")}
+
+/* ── Paid row tints — dark ── */
+body.dark-mode .egrid tbody tr.paid-cash  td:not(.col-num){background:#162318}
+body.dark-mode .egrid tbody tr.paid-card  td:not(.col-num){background:#131A2E}
+body.dark-mode .egrid tbody tr.paid-talon td:not(.col-num){background:#252210}
+body.dark-mode .egrid tbody tr.paid-reno  td:not(.col-num){background:#1E1428}
+
+/* ── Box row tints — dark ── */
+body.dark-mode .egrid tbody tr.bx-1:not(.is-empty) td:not(.col-num){background:#131E35}
+body.dark-mode .egrid tbody tr.bx-1:not(.is-empty):hover td:not(.col-num){background:#1A2840}
+body.dark-mode .egrid tbody tr.bx-2:not(.is-empty) td:not(.col-num){background:#122418}
+body.dark-mode .egrid tbody tr.bx-2:not(.is-empty):hover td:not(.col-num){background:#182E1E}
+body.dark-mode .egrid tbody tr.bx-3:not(.is-empty) td:not(.col-num){background:#2A1F0A}
+body.dark-mode .egrid tbody tr.bx-3:not(.is-empty):hover td:not(.col-num){background:#332510}
+body.dark-mode .egrid tbody tr.bx-4:not(.is-empty) td:not(.col-num){background:#1E1430}
+body.dark-mode .egrid tbody tr.bx-4:not(.is-empty):hover td:not(.col-num){background:#261A3C}
+
+/* ── Box cell (colored TD) — dark overlay ── */
+body.dark-mode .egrid td.bc-1{background:rgba(59,130,246,.3)!important}
+body.dark-mode .egrid td.bc-2{background:rgba(5,150,105,.3)!important}
+body.dark-mode .egrid td.bc-3{background:rgba(217,119,6,.3)!important}
+body.dark-mode .egrid td.bc-4{background:rgba(124,58,237,.3)!important}
+body.dark-mode .egrid td.bc-1 select,
+body.dark-mode .egrid td.bc-2 select,
+body.dark-mode .egrid td.bc-3 select,
+body.dark-mode .egrid td.bc-4 select{background:transparent}
+
+/* ── Nav mode amber highlight — dark bg ── */
+body.dark-mode .egrid tbody td:focus:not(:focus-within):not(.col-num):not(.col-ro){
+  background:#2A2010!important}
+
+/* ── Box bar ── */
+body.dark-mode .box-bar{background:var(--surface);border-bottom-color:var(--border)}
+body.dark-mode .box-bar-item{border-right-color:var(--border)}
+body.dark-mode .bbi-salary{color:var(--text)}
+
+/* ── Tab nav ── */
+body.dark-mode .tab-nav{background:var(--surface);border-bottom-color:var(--border)}
+body.dark-mode .tab-btn{color:var(--text-3)}
+body.dark-mode .tab-btn:hover{background:var(--surface-2);color:var(--text)}
+
+/* ── Login + Start-shift ── */
+body.dark-mode .login-card,
+body.dark-mode .ss-card{background:var(--surface);border-color:var(--border)}
+body.dark-mode .esg-logo-mark .l-e,
+body.dark-mode .esg-logo-mark .l-g,
+body.dark-mode .ss-esg .e,
+body.dark-mode .ss-esg .g{color:var(--text)}
+body.dark-mode .ss-manager-strip{background:var(--surface-2);border-color:var(--border)}
+body.dark-mode .ss-bigclock{color:var(--text)}
+body.dark-mode .ss-date,
+body.dark-mode .ss-manager-name{color:var(--text)}
+
+/* ── Summary panel ── */
+body.dark-mode .sum-card{background:var(--surface);border-color:var(--border)}
+body.dark-mode .sum-card-value{color:var(--text)}
+body.dark-mode .sum-card.primary{background:rgba(0,140,207,.12)}
+body.dark-mode .sum-card.green .sum-card-value{color:#10B981}
+body.dark-mode .bsg-card{background:var(--surface);border-color:var(--border)}
+body.dark-mode .bsg-value{color:var(--text)}
+body.dark-mode .bonus-bar-wrap{background:var(--surface);border-color:var(--border)}
+body.dark-mode .bbar-track{background:var(--surface-3)}
+body.dark-mode .sum-table td{border-bottom-color:var(--border);color:var(--text-2)}
+body.dark-mode .sum-table td:last-child{color:var(--text)}
+body.dark-mode .sum-table tr.total-r td{color:var(--esg-blue)}
+
+/* ── Modals ── */
+body.dark-mode .modal-overlay{background:rgba(0,0,0,.65)}
+body.dark-mode .modal{background:var(--surface);border-color:var(--border)}
+body.dark-mode .modal-title{color:var(--text)}
+body.dark-mode .sm-card{background:var(--surface-2);border-color:var(--border)}
+body.dark-mode .sm-card .scv{color:var(--text)}
+body.dark-mode .sm-card.accent{background:rgba(0,140,207,.15)}
+body.dark-mode .sm-card.green{background:rgba(16,185,129,.1)}
+body.dark-mode .sm-table td{border-bottom-color:var(--border);color:var(--text-2)}
+body.dark-mode .sm-table td:last-child{color:var(--text)}
+body.dark-mode .sm-table tr.total-r td{color:var(--esg-blue)}
+body.dark-mode .pay-option{background:var(--surface-2);border-color:var(--border-md);color:var(--text-2)}
+body.dark-mode .pay-option:hover{background:var(--surface-3)}
+body.dark-mode .pay-option.sel{background:rgba(0,140,207,.15);border-color:var(--esg-blue)}
+body.dark-mode .modal-close{background:var(--surface-2);border-color:var(--border);color:var(--text-3)}
+
+/* ── Toast ── */
+body.dark-mode .toast{background:var(--surface);border-color:var(--border);color:var(--text-2)}
+
+/* ── Header ── */
+body.dark-mode .app-header{background:var(--surface);border-bottom-color:var(--border)}
+body.dark-mode .hdr-divider{background:var(--border)}
+body.dark-mode .hdr-stat{border-right-color:var(--border)}
+body.dark-mode .hdr-stat-value{color:var(--text)}
+body.dark-mode .bonus-pill{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3);color:#10B981}
+
+/* ── Scrollbars ── */
+body.dark-mode ::-webkit-scrollbar-track{background:var(--surface-2)}
+body.dark-mode ::-webkit-scrollbar-thumb{background:var(--border-dk)}
