@@ -114,9 +114,11 @@ function doGet(e) {
   }
 
   // ?page=monthly&pin=<ADMIN_VIEW_PIN>[&month=June 2026]  →  (re)build monthly summary sheet(s)
-  if (page === 'monthly') {
+  // ?page=master&pin=<ADMIN_VIEW_PIN>                     →  (re)build the all-months master sheet
+  if (page === 'monthly' || page === 'master') {
     if ((e.parameter.pin || '') !== ADMIN_VIEW_PIN)
       return ContentService.createTextOutput('forbidden').setMimeType(ContentService.MimeType.TEXT);
+    if (page === 'master') return jsonOut_(rebuildAllMonthsMaster());
     return jsonOut_(e.parameter.month ? rebuildMonthlySummary(e.parameter.month)
                                       : rebuildAllMonthlySummaries());
   }
@@ -861,8 +863,9 @@ function closeShift(managerName) {
       archivePath = ROOT_FOLDER_NAME + ' / ' + monthFolderName + ' / ' + archiveName;
 
       // Keep the month's running summary current — must never block the close
+      let monthRows = null;
       try {
-        monthlyUrl = _updateMonthlySummary(mthFolder, monthFolderName, {
+        const mres = _updateMonthlySummary(mthFolder, monthFolderName, {
           date: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
           manager: managerName, washes: entries.length, vip: byType['VIP'].count,
           cash: cashTotal, card: cardTotal, talon: talonValue, reno: renoValue, pending: pendingTotal,
@@ -872,7 +875,13 @@ function closeShift(managerName) {
           w1: boxWashes['Box 1'],   w2: boxWashes['Box 2'],   w3: boxWashes['Box 3'],   w4: boxWashes['Box 4'],
           fileId: archiveSS.getId(), url: archiveSS.getUrl(), name: archiveName, created: Date.now()
         });
+        monthlyUrl = mres.url; monthRows = mres.records;
       } catch(mErr) { Logger.log('Monthly summary skipped: ' + mErr.message); }
+      // …and this month's line in the all-months master sheet
+      if (monthRows) {
+        try { _upsertMasterMonth(_monthRecordFromRecords(today.getFullYear(), today.getMonth(), monthRows, monthlyUrl, monthFolderName)); }
+        catch(xErr) { Logger.log('Master sheet skipped: ' + xErr.message); }
+      }
     } catch(driveErr) {
       Logger.log('Drive folder skipped: ' + driveErr.message);
     }
@@ -978,36 +987,46 @@ function rebuildAllMonthlySummaries() {
 
 function _rebuildMonthlyUnlocked(monthName) {
   try {
-    const it = _getRootFolder().getFoldersByName(monthName);
-    if (!it.hasNext()) return { success:false, message:'Folder not found: ' + monthName };
-    const folder  = it.next();
-    const files   = folder.getFilesByType(MimeType.GOOGLE_SHEETS);
-    const records = [], errors = [];
-    while (files.hasNext()) {
-      const f = files.next();
-      if (f.getName().indexOf(DAILY_PREFIX) !== 0) continue;
-      try { records.push(_extractDayRecord(f)); }
-      catch(e) { errors.push(f.getName() + ': ' + e.message); }
-    }
-    const mss = _getOrCreateMonthlySS(folder, monthName);
-    const T   = _writeMonthlyWorkbook(mss, monthName, records);
-    return { success:true, month:monthName, shifts:records.length, revenue:T.revenue,
-             cash:T.cash, card:T.card, expenses:T.expenses, net:T.net, errors, url:mss.getUrl() };
+    const c = _rebuildMonthlyCore(monthName);
+    return { success:true, month:monthName, shifts:c.records.length, revenue:c.T.revenue, cash:c.T.cash,
+             card:c.T.card, expenses:c.T.expenses, net:c.T.net, errors:c.errors, url:c.mss.getUrl() };
   } catch(e) { return { success:false, month:monthName, message:e.message }; }
+}
+
+// Scans the month folder's daily archives and (re)writes the monthly workbook.
+// `mss` may be passed when the caller already holds the monthly spreadsheet.
+function _rebuildMonthlyCore(monthName, mss) {
+  const it = _getRootFolder().getFoldersByName(monthName);
+  if (!it.hasNext()) throw new Error('Folder not found: ' + monthName);
+  const folder  = it.next();
+  const files   = folder.getFilesByType(MimeType.GOOGLE_SHEETS);
+  const records = [], errors = [];
+  while (files.hasNext()) {
+    const f = files.next();
+    if (f.getName().indexOf(DAILY_PREFIX) !== 0) continue;
+    try { records.push(_extractDayRecord(f)); }
+    catch(e) { errors.push(f.getName() + ': ' + e.message); }
+  }
+  if (!mss) mss = _getOrCreateMonthlySS(folder, monthName);
+  const T = _writeMonthlyWorkbook(mss, monthName, records);
+  return { mss, records, T, errors };
 }
 
 // Incremental path used by closeShift: read the month table back, replace/append
 // today's row, rewrite. Falls back to a full rebuild if the sheet is new or its
-// layout predates MHDRS. Returns the monthly sheet URL.
+// layout predates MHDRS. Returns { url, records }.
 function _updateMonthlySummary(folder, monthName, rec) {
   return _withMonthlyLock(() => {
     const mss = _getOrCreateMonthlySS(folder, monthName);
     let records = _readMonthlyRecords(mss);
-    if (!records) { _rebuildMonthlyUnlocked(monthName); return mss.getUrl(); }
+    if (!records) {
+      const c = _rebuildMonthlyCore(monthName, mss);
+      return { url: mss.getUrl(), records: c.records };
+    }
     records = records.filter(r => r.fileId !== rec.fileId);
     records.push(rec);
     _writeMonthlyWorkbook(mss, monthName, records);
-    return mss.getUrl();
+    return { url: mss.getUrl(), records };
   });
 }
 
@@ -1207,6 +1226,231 @@ function _writeMonthlyWorkbook(mss, monthName, records) {
   s2.setFrozenRows(1);
 
   return T;
+}
+
+// ============================================================
+//  ALL-MONTHS MASTER  —  one sheet with every month: the hand-kept
+//  "<თვე> აღრიცხვა" sheets (MASTER_FOLDER_ID/<year>/) plus the ERP's
+//  ESGMonthlyMall sheets. Kept current by closeShift(); full rebuild via
+//  rebuildAllMonthsMaster() (?page=master).
+// ============================================================
+const MASTER_FOLDER_ID = '1V47Cbx68yzg7AiR1rH9EgOItoMY2Svv-';
+const MASTER_NAME      = 'ESG Car Wash — ყველა თვე';
+const GEO_MONTHS = ['იანვარი','თებერვალი','მარტი','აპრილი','მაისი','ივნისი',
+                    'ივლისი','აგვისტო','სექტემბერი','ოქტომბერი','ნოემბერი','დეკემბერი'];
+// Column order shared by the writer and the read-back parser — keep in sync
+const XCOLS = ['year','label','cars','vip','revenue','cash','card','talon','reno','washers','manager',
+               'cashLeft','net','days','avg','source','url'];
+const XHDRS = ['წელი','თვე','მობანება','VIP','შემოსავალი','ქეში','ბარათი','ტალონი','Reno','მრეცხავები','მენეჯერი',
+               'ნარჩენი ქეში','ქეში + ბარათი','სამუშაო დღეები','საშ. შემოსავალი / დღე','წყარო','URL'];
+const X_HDR_ROW = 3;
+
+function _getMasterSS(create) {
+  const folder = DriveApp.getFolderById(MASTER_FOLDER_ID);
+  const it = folder.getFilesByName(MASTER_NAME);
+  const found = [];
+  while (it.hasNext()) found.push(it.next());
+  if (found.length) {
+    found.sort((a, b) => a.getDateCreated() - b.getDateCreated());
+    found.slice(1).forEach(f => { try { f.setTrashed(true); } catch(e) {} });
+    return SpreadsheetApp.openById(found[0].getId());
+  }
+  if (!create) return null;
+  const ss = SpreadsheetApp.create(MASTER_NAME);
+  DriveApp.getFileById(ss.getId()).moveTo(folder);
+  return ss;
+}
+
+// Old manual sheet → month record. Sums the day rows as recorded (the totals
+// row is incomplete in some months and "Cash Left" carries hand adjustments).
+function _readOldMonthSheet(file, year, mi) {
+  const v  = SpreadsheetApp.openById(file.getId()).getSheets()[0].getDataRange().getValues();
+  const hi = v.findIndex(r => String(r[0]).trim() === 'Date');
+  if (hi < 0) throw new Error('"Date" header not found');
+  const H  = v[hi].map(x => String(x).trim());
+  const ci = {};
+  [['cars','Cars Washed'],['vip','VIP Washes'],['revenue','Money Made'],['washers','Washers Pay'],['manager','Manager Pay'],
+   ['talon','Talons'],['card','Card Pay'],['cashLeft','Cash Left'],['net','Cash+Card']]
+    .forEach(p => { ci[p[0]] = H.indexOf(p[1]); if (ci[p[0]] < 0) throw new Error('column missing: ' + p[1]); });
+  const num = x => parseFloat(x) || 0;
+  const rec = { year, month: mi, cars:0, vip:0, revenue:0, card:0, talon:0, reno:0, washers:0, manager:0,
+                cashLeft:0, net:0, days:0, source: file.getName(), url: file.getUrl(), erp: false };
+  for (let i = hi + 1; i < v.length; i++) {
+    const r = v[i];
+    if (String(r[0]).trim() === '') continue;              // totals / blank rows carry no Date
+    Object.keys(ci).forEach(k => { rec[k] += num(r[ci[k]]); });
+    if (num(r[ci.cars]) > 0) rec.days++;
+  }
+  rec.cash = rec.revenue - rec.card - rec.talon;           // not recorded in the old sheets
+  return rec;
+}
+
+// ERP month (rows of an ESGMonthlyMall Summary table) → month record
+function _monthRecordFromRecords(year, mi, rows, url, monthName) {
+  const S = k => rows.reduce((s, r) => s + (parseFloat(r[k]) || 0), 0);
+  const tz = Session.getScriptTimeZone();
+  const days = new Set(rows.map(r => Utilities.formatDate(new Date(r.date), tz, 'yyyy-MM-dd'))).size;
+  const rec = { year, month: mi, cars:S('washes'), vip:S('vip'), revenue:S('revenue'), cash:S('cash'), card:S('card'),
+                talon:S('talon'), reno:S('reno'), washers:S('washers'), manager:S('managerPay'), net:S('net'),
+                days, source: MONTHLY_PREFIX + monthName, url, erp: true };
+  rec.cashLeft = rec.cash - rec.washers - rec.manager;
+  return rec;
+}
+
+function rebuildAllMonthsMaster() {
+  return _withMonthlyLock(_rebuildMasterUnlocked);
+}
+
+function _rebuildMasterUnlocked() {
+  try {
+    const recs = [], errors = [];
+    const yrs = DriveApp.getFolderById(MASTER_FOLDER_ID).getFolders();
+    while (yrs.hasNext()) {
+      const yf = yrs.next(), year = parseInt(yf.getName(), 10);
+      if (!(year > 2000)) continue;
+      const files = yf.getFilesByType(MimeType.GOOGLE_SHEETS);
+      while (files.hasNext()) {
+        const f  = files.next();
+        const mi = GEO_MONTHS.indexOf(f.getName().trim().split(/\s+/)[0]);
+        if (mi < 0) continue;
+        try { recs.push(_readOldMonthSheet(f, year, mi)); }
+        catch(e) { errors.push(f.getName() + ': ' + e.message); }
+      }
+    }
+    const mf = _getRootFolder().getFolders();
+    while (mf.hasNext()) {
+      const folder = mf.next(), d = new Date('1 ' + folder.getName());
+      if (isNaN(d.getTime())) continue;
+      const it = folder.getFilesByName(MONTHLY_PREFIX + folder.getName());
+      let rows = null, url = '';
+      if (it.hasNext()) {
+        const mss = SpreadsheetApp.openById(it.next().getId());
+        rows = _readMonthlyRecords(mss); url = mss.getUrl();
+      }
+      if (!rows) {   // monthly sheet missing or unreadable → rebuild it from the daily archives
+        try { const c = _rebuildMonthlyCore(folder.getName()); rows = c.records; url = c.mss.getUrl(); }
+        catch(e) { errors.push(folder.getName() + ': ' + e.message); continue; }
+      }
+      if (rows.length) recs.push(_monthRecordFromRecords(d.getFullYear(), d.getMonth(), rows, url, folder.getName()));
+    }
+    const master = _getMasterSS(true);
+    const n = _writeMasterSheet(master, recs);
+    return { success:true, months:n, errors, url: master.getUrl() };
+  } catch(e) { return { success:false, message:e.message }; }
+}
+
+function _upsertMasterMonth(rec) {
+  return _withMonthlyLock(() => {
+    const master = _getMasterSS(false);
+    if (!master) { _rebuildMasterUnlocked(); return; }
+    let recs = _readMasterRecords(master);
+    if (!recs) { _rebuildMasterUnlocked(); return; }
+    recs = recs.filter(r => !(r.year === rec.year && r.month === rec.month));
+    recs.push(rec);
+    _writeMasterSheet(master, recs);
+  });
+}
+
+function _readMasterRecords(ss) {
+  const sh = ss.getSheetByName('Months');
+  if (!sh) return null;
+  const v  = sh.getDataRange().getValues();
+  const hi = v.findIndex(r => r[0] === XHDRS[0] && r[1] === XHDRS[1]);
+  if (hi < 0) return null;
+  for (let c = 0; c < XHDRS.length; c++) if (v[hi][c] !== XHDRS[c]) return null;
+  const recs = [];
+  for (let i = hi + 1; i < v.length; i++) {
+    const r = v[i];
+    if (typeof r[0] !== 'number') { if (String(r[0]).trim() === '') break; continue; }
+    const mi = GEO_MONTHS.indexOf(String(r[1]).replace(/\s*\d{4}\s*$/, '').trim());
+    if (mi < 0) continue;
+    const o = {};
+    XCOLS.forEach((k, c) => { o[k] = r[c]; });
+    o.year = r[0]; o.month = mi; o.source = String(o.source || ''); o.url = String(o.url || '');
+    o.erp = o.source.indexOf(MONTHLY_PREFIX) === 0;
+    delete o.label;
+    recs.push(o);
+  }
+  return recs;
+}
+
+// Writes the master: contiguous month table (for the chart), yearly block, chart. Returns month count.
+function _writeMasterSheet(ss, recs) {
+  try { ss.setSpreadsheetTimeZone(Session.getScriptTimeZone()); } catch(e) {}
+  const key = r => r.year * 100 + r.month;
+  const byKey = {};
+  recs.forEach(r => { const k = key(r); if (!byKey[k] || r.erp) byKey[k] = r; });   // ERP data wins for the same month
+  recs = Object.keys(byKey).map(k => byKey[k]).sort((a, b) => key(a) - key(b));
+  const NC = XHDRS.length, n = recs.length;
+  const BORDER = r => r.setBorder(true, true, true, true, true, true, '#CBD5E1', SpreadsheetApp.BorderStyle.SOLID);
+  const sumOf = (list, k) => list.reduce((s, r) => s + (parseFloat(r[k]) || 0), 0);
+  const totRow = (label, list) => {
+    const t = {}; ['cars','vip','revenue','cash','card','talon','reno','washers','manager','cashLeft','net','days'].forEach(k => { t[k] = sumOf(list, k); });
+    return [label, '', t.cars, t.vip, t.revenue, t.cash, t.card, t.talon, t.reno, t.washers, t.manager,
+            t.cashLeft, t.net, t.days, t.days ? t.revenue / t.days : 0, '', ''];
+  };
+
+  const sh = _freshSheet(ss, 'Months', 0);
+  sh.getCharts().forEach(c => sh.removeChart(c));
+  const pad = a => a.concat(new Array(NC - a.length).fill(''));
+  const rows = [pad(['ESG Car Wash  ·  ყველა თვე']), pad([]), XHDRS.slice()];
+  recs.forEach(r => rows.push([r.year, GEO_MONTHS[r.month] + ' ' + r.year, r.cars, r.vip, r.revenue, r.cash, r.card,
+                               r.talon, r.reno, r.washers, r.manager, r.cashLeft, r.net, r.days,
+                               r.days ? r.revenue / r.days : 0, r.source || '', r.url || '']));
+  const first = X_HDR_ROW + 1, yearsRow = first + n + 1;
+  rows.push(pad([]));
+  rows.push(pad(['წლიური ჯამი']));
+  const years = []; recs.forEach(r => { if (years.indexOf(r.year) < 0) years.push(r.year); });
+  years.forEach(y => rows.push(totRow(y + ' სულ', recs.filter(r => r.year === y))));
+  rows.push(totRow('სულ', recs));
+  sh.getRange(1, 1, rows.length, NC).setValues(rows);
+
+  if (n) sh.getRange(first, XCOLS.indexOf('source') + 1, n, 1).setRichTextValues(recs.map(r =>
+    [SpreadsheetApp.newRichTextValue().setText(r.source || 'ფაილი').setLinkUrl(r.url || null).build()]));
+
+  const MONEY = ['revenue','cash','card','talon','reno','washers','manager','cashLeft','net','avg'];
+  const COUNT = ['year','cars','vip','days'];
+  const fmtRow = XCOLS.map(k => MONEY.indexOf(k) >= 0 ? '#,##0.00' : COUNT.indexOf(k) >= 0 ? '0' : '@');
+  const fmts = []; for (let i = 0; i < rows.length - X_HDR_ROW; i++) fmts.push(fmtRow.slice());
+  sh.getRange(first, 1, rows.length - X_HDR_ROW, NC).setNumberFormats(fmts);
+  sh.getRange(yearsRow, 1, rows.length - yearsRow + 1, 1).setNumberFormat('@');
+
+  sh.getRange(1, 1, 1, NC).merge().setBackground('#1A2132').setFontColor('#E2EAF4')
+    .setFontSize(13).setFontWeight('bold').setHorizontalAlignment('center');
+  sh.setRowHeight(1, 36);
+  sh.getRange(X_HDR_ROW, 1, 1, NC).setBackground('#2C3A50').setFontColor('#FFFFFF')
+    .setFontWeight('bold').setFontSize(10).setHorizontalAlignment('center').setWrap(true).setVerticalAlignment('middle');
+  sh.setRowHeight(X_HDR_ROW, 34);
+  if (n) {
+    sh.getRange(first, 1, n, NC).setBackgrounds(recs.map((r, i) => new Array(NC).fill(r.erp ? '#F0F9FF' : (i % 2 ? '#FAFAFA' : '#FFFFFF'))));
+    sh.getRange(first, 2, n, 1).setFontWeight('bold');
+    sh.getRange(first, XCOLS.indexOf('revenue') + 1, n, 1).setFontWeight('bold');
+    sh.getRange(first, XCOLS.indexOf('url') + 1, n, 1).setFontColor('#9CA3AF').setFontSize(8);
+    BORDER(sh.getRange(X_HDR_ROW, 1, n + 1, NC));
+  }
+  sh.getRange(yearsRow, 1, 1, NC).merge().setBackground('#2C3A50').setFontColor('#FFFFFF').setFontWeight('bold');
+  sh.setRowHeight(yearsRow, 26);
+  sh.getRange(yearsRow + 1, 1, years.length, NC).setBackground('#FEF3C7').setFontWeight('bold');
+  sh.getRange(yearsRow + 1 + years.length, 1, 1, NC).setBackground('#D1FAE5').setFontWeight('bold').setFontSize(11);
+  BORDER(sh.getRange(yearsRow, 1, years.length + 2, NC));
+  sh.setFrozenRows(X_HDR_ROW);
+  [60, 150, 80, 50, 100, 95, 90, 80, 70, 100, 95, 105, 110, 80, 110, 190, 60].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+
+  if (n > 1) {
+    const chart = sh.newChart().setChartType(Charts.ChartType.COLUMN)
+      .addRange(sh.getRange(X_HDR_ROW, 2, n + 1, 1))
+      .addRange(sh.getRange(X_HDR_ROW, XCOLS.indexOf('revenue') + 1, n + 1, 1))
+      .addRange(sh.getRange(X_HDR_ROW, XCOLS.indexOf('net') + 1, n + 1, 1))
+      .setNumHeaders(1)
+      .setOption('title', 'შემოსავალი და ნარჩენი თვეების მიხედვით')
+      .setOption('legend', { position: 'top' })
+      .setOption('colors', ['#008CCF', '#059669'])
+      .setOption('width', 900).setOption('height', 340)
+      .setPosition(yearsRow + years.length + 4, 1, 0, 0)
+      .build();
+    sh.insertChart(chart);
+  }
+  return n;
 }
 
 // ============================================================
