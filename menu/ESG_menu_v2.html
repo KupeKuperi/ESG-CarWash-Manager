@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+<meta charset="UTF-8">
+<title>ESG — ფასების მენიუ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#2b3342;--fg:#ffffff;--fg2:rgba(255,255,255,.72);--line:rgba(255,255,255,.16);--blue:#3fa9e0}
+@page{size:A4;margin:0}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:210mm;height:297mm;overflow:hidden;background:var(--bg);color:var(--fg);
+  font-family:'Noto Sans Georgian',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{width:210mm;height:297mm;padding:11mm 13mm 10mm;display:grid;
+  grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto 1fr;column-gap:10mm;row-gap:5mm}
+.geo{text-transform:uppercase;letter-spacing:.02em}
+h1{font-size:23pt;font-weight:900;line-height:1.05}
+h2{font-size:15pt;font-weight:900;line-height:1.1;margin-bottom:2.5mm}
+.hours{font-size:21pt;font-weight:300;letter-spacing:.04em;margin-top:1.5mm;font-variant-numeric:tabular-nums}
+.logo{justify-self:end;align-self:start;width:23mm;display:block}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th{font-size:8pt;font-weight:600;color:var(--fg2);text-align:right;padding:0 0 1.2mm;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child{text-align:left}
+td{padding:1.2mm 0;border-bottom:1px solid var(--line);font-size:12pt;font-weight:300;text-align:right;white-space:nowrap}
+td:first-child{text-align:left;font-weight:700;font-size:11.5pt}
+.sub{font-size:8.5pt;color:var(--fg2);line-height:1.4;margin-top:2mm}
+.tag{display:inline-block;font-size:7pt;font-weight:700;color:var(--bg);background:var(--blue);
+  padding:.5mm 1.8mm;border-radius:1mm;vertical-align:middle;margin-left:2mm;letter-spacing:.08em;position:relative;top:-1mm}
+.list{list-style:none}
+.list li{display:flex;justify-content:space-between;align-items:baseline;padding:1.2mm 0;border-bottom:1px solid var(--line);font-size:10.5pt}
+.list li .lbl{font-weight:600}
+.list li .val{font-weight:300;white-space:nowrap;margin-left:4mm;font-size:11.5pt;font-variant-numeric:tabular-nums}
+.loyal li{display:block;border:0;padding:1.3mm 0}
+.loyal .lbl{display:block;font-size:11pt;font-weight:700;line-height:1.2}
+.loyal .small{margin-top:.6mm}
+.small{font-size:8.5pt;color:var(--fg2);line-height:1.45}
+.free{color:var(--blue);font-weight:900}
+.note{border:1px solid rgba(255,255,255,.6);padding:4mm 4.5mm;font-size:8.5pt;line-height:1.5;color:var(--fg2);align-self:end}
+.note b{color:var(--fg);display:block;margin-bottom:1.5mm;font-size:9.5pt}
+.clean{align-self:end}
+.plus{display:grid;grid-template-columns:repeat(4,1fr);gap:2mm;margin-top:1mm}
+.plus div{border:1px solid var(--line);border-radius:1.5mm;padding:2mm 1mm;text-align:center}
+.plus span{display:block;font-size:7.5pt;font-weight:600;color:var(--fg2);margin-bottom:.8mm}
+.plus b{font-size:15pt;font-weight:300}
+.clean .price{font-size:14pt;font-weight:300;margin-top:1mm}
+.clean .price b{font-weight:900;font-size:17pt}
+.brand{grid-column:1/3;display:flex;justify-content:space-between;align-items:flex-end;align-self:end;
+  font-size:7.5pt;color:var(--fg2);letter-spacing:.06em;border-top:1px solid var(--line);padding-top:2.5mm}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="hours-block">
+    <h1 class="geo">სამუშაო საათები</h1>
+    <div class="hours">10:00 – 21:00</div>
+  </div>
+  <img id="logo" class="logo" src="logo-dark.png" alt="ESG">
+
+  <section class="prices">
+    <h2 class="geo">რეცხვის ტარიფები</h2>
+    <table>
+      <thead><tr><th></th><th class="geo">სტანდარტი</th><th class="geo">გარედან</th><th class="geo">შიგნიდან</th></tr></thead>
+      <tbody>
+        <tr><td class="geo">სედანი</td><td>30</td><td>20</td><td>15</td></tr>
+        <tr><td class="geo">ჯიპი</td><td>40</td><td>30</td><td>15</td></tr>
+        <tr><td class="geo">ჯიპი XL</td><td>50</td><td>40</td><td>15</td></tr>
+        <tr><td class="geo">მინივენი</td><td>60</td><td>50</td><td>15</td></tr>
+      </tbody>
+    </table>
+    <p class="sub geo">ფასები ლარებში · სტანდარტულ რეცხვაში შედის ძარის რეცხვა, სალონის მტვერსასრუტი და გაპრიალება</p>
+
+    <h2 class="geo" style="margin-top:5mm">სტანდარტი+ <span class="tag geo">ახალი</span></h2>
+    <p class="sub geo" style="margin:0 0 2mm">სტანდარტული რეცხვა + ცვილით დამუშავება + საბურავების სილიკონი</p>
+    <div class="plus">
+      <div><span class="geo">სედანი</span><b>45</b></div>
+      <div><span class="geo">ჯიპი</span><b>55</b></div>
+      <div><span class="geo">ჯიპი XL</span><b>65</b></div>
+      <div><span class="geo">მინივენი</span><b>75</b></div>
+    </div>
+  </section>
+
+  <section class="vip">
+    <h2 class="geo">VIP რეცხვა</h2>
+    <table>
+      <thead><tr><th></th><th class="geo">ტყავის სალონით</th><th class="geo">ნაჭრის სალონით</th></tr></thead>
+      <tbody>
+        <tr><td class="geo">სედანი</td><td>100</td><td>120</td></tr>
+        <tr><td class="geo">ჯიპი</td><td>120</td><td>140</td></tr>
+        <tr><td class="geo">ჯიპი XL</td><td>150</td><td>170</td></tr>
+      </tbody>
+    </table>
+    <p class="sub geo">მომსახურებაში შედის: ძარის რეცხვა და ცვილით დამუშავება, სალონის არომატიზატორი, საბურავების სილიკონით დამუშავება და საქარე მინის საწმენდი სითხის ჩამატება (სეზონის მიხედვით)</p>
+  </section>
+
+  <section class="addons">
+    <h2 class="geo">დამატებითი სერვისები <span class="tag geo">ახალი</span></h2>
+    <p class="sub geo" style="margin:0 0 1.5mm">ემატება ნებისმიერ რეცხვას · ფასები ლარებში</p>
+    <ul class="list">
+      <li><span class="lbl geo">ცვილით დამუშავება — სედანი</span><span class="val">15</span></li>
+      <li><span class="lbl geo">ცვილით დამუშავება — ჯიპი / XL / მინივენი</span><span class="val">20</span></li>
+      <li><span class="lbl geo">საბურავების სილიკონი</span><span class="val">5</span></li>
+      <li><span class="lbl geo">სალონის არომატიზატორი</span><span class="val">5</span></li>
+      <li><span class="lbl geo">ტყავის სალონის მოვლა</span><span class="val">20</span></li>
+      <li><span class="lbl geo">პლასტმასის დამუშავება</span><span class="val">20</span></li>
+      <li><span class="lbl geo">ქვევიდან რეცხვა</span><span class="val">15</span></li>
+      <li><span class="lbl geo">ბეწვისგან გაწმენდა</span><span class="val">20</span></li>
+    </ul>
+  </section>
+
+  <section class="loyalty">
+    <h2 class="geo">ლოიალობა <span class="tag geo">ახალი</span></h2>
+    <ul class="list loyal">
+      <li><span class="lbl geo">ყოველი მე-6 რეცხვა — <span class="free">უფასოდ</span></span>
+          <div class="small geo">ვითვლით თქვენი მანქანის ნომრით — რეგისტრაცია არ არის საჭირო</div></li>
+      <li><span class="lbl geo">სამშაბათი და ოთხშაბათი</span>
+          <div class="small geo">რეცხვა ორმაგად ითვლება</div></li>
+      <li><span class="lbl geo">დილის საჩუქარი</span>
+          <div class="small geo">ორშაბათი–პარასკევი 12:30-მდე — ცვილით დამუშავება უფასოდ</div></li>
+      <li><span class="lbl geo">თვიური აბონემენტი — 4 რეცხვა</span>
+          <div class="small geo">სედანი 100 · ჯიპი 130 · ჯიპი XL 160 ლარი</div></li>
+    </ul>
+  </section>
+
+  <section class="clean">
+    <h2 class="geo">ქიმწმენდის მომსახურება</h2>
+    <div class="price geo">საწყისი ფასი <b>300</b> ლარიდან</div>
+    <p class="small geo" style="margin-top:2mm">წინასწარი ჯავშნით · დილის საათებში</p>
+    <p class="small geo" style="margin-top:2.5mm">გთხოვთ სატრანსპორტო საშუალების გასაღები მოაკითხოთ 20:30 საათამდე, წინააღმდეგ შემთხვევაში დაგერიცხებათ მოცდის საფასური — ყოველ 30 წუთზე 30 ლარი</p>
+  </section>
+
+  <div class="note geo">
+    <b>შენიშვნა:</b>
+    სერვისის ფასი დამოკიდებულია ლაქების სირთულესა და ნივთის მდგომარეობაზე. ძალიან ბინძური მანქანა ან განსაკუთრებული შემთხვევები ინდივიდუალურად ფასდება.
+  </div>
+
+</div>
+</body>
+</html>
