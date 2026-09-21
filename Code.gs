@@ -115,9 +115,18 @@ function doGet(e) {
 
   // ?page=monthly&pin=<ADMIN_VIEW_PIN>[&month=June 2026]  →  (re)build monthly summary sheet(s)
   // ?page=master&pin=<ADMIN_VIEW_PIN>                     →  (re)build the all-months master sheet
-  if (page === 'monthly' || page === 'master') {
+  // ?page=export&pin=…&part=days                       →  CSV: every day (manual sheets + ERP archives)
+  // ?page=export&pin=…&part=cars&month=June 2026[&d1=1&d2=15]  →  CSV: every wash of that month
+  if (page === 'monthly' || page === 'master' || page === 'export' || page === 'audit') {
     if ((e.parameter.pin || '') !== ADMIN_VIEW_PIN)
       return ContentService.createTextOutput('forbidden').setMimeType(ContentService.MimeType.TEXT);
+    if (page === 'export') {
+      const csv = e.parameter.part === 'cars'
+        ? _exportCarsCsv(e.parameter.month, parseInt(e.parameter.d1, 10) || 1, parseInt(e.parameter.d2, 10) || 31)
+        : _exportDaysCsv();
+      return ContentService.createTextOutput(csv).setMimeType(ContentService.MimeType.TEXT);
+    }
+    if (page === 'audit')  return jsonOut_(e.parameter.do === 'cache' ? auditBuildCache() : auditStats());
     if (page === 'master') return jsonOut_(rebuildAllMonthsMaster());
     return jsonOut_(e.parameter.month ? rebuildMonthlySummary(e.parameter.month)
                                       : rebuildAllMonthlySummaries());
@@ -1229,6 +1238,98 @@ function _writeMonthlyWorkbook(mss, monthName, records) {
 }
 
 // ============================================================
+//  DATA EXPORT (analysis)  —  plain CSV over the PIN-gated route
+// ============================================================
+function _csvLine(a) {
+  return a.map(x => { const s = String(x === undefined || x === null ? '' : x); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(',');
+}
+function _ymd(d) { return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd'); }
+
+// One row per day: manual sheets (src=manual) + ERP archives (src=erp, with box detail)
+function _exportDaysCsv() {
+  const out = [['date','src','manager','cars','vip','revenue','cash','card','talon','reno','pending','washers','mgr_pay','cash_left','net','b1','b2','b3','b4','w1','w2','w3','w4','file']];
+  const yrs = DriveApp.getFolderById(MASTER_FOLDER_ID).getFolders();
+  while (yrs.hasNext()) {
+    const yf = yrs.next(), year = parseInt(yf.getName(), 10);
+    if (!(year > 2000)) continue;
+    const files = yf.getFilesByType(MimeType.GOOGLE_SHEETS);
+    while (files.hasNext()) {
+      const f  = files.next();
+      const mi = GEO_MONTHS.indexOf(f.getName().trim().split(/\s+/)[0]);
+      if (mi < 0) continue;
+      const v  = SpreadsheetApp.openById(f.getId()).getSheets()[0].getDataRange().getValues();
+      const hi = v.findIndex(r => String(r[0]).trim() === 'Date');
+      if (hi < 0) continue;
+      const H = v[hi].map(x => String(x).trim());
+      const c = n => H.indexOf(n);
+      const ci = { cars:c('Cars Washed'), vip:c('VIP Washes'), money:c('Money Made'), w:c('Washers Pay'), m:c('Manager Pay'), t:c('Talons'), card:c('Card Pay'), left:c('Cash Left'), cc:c('Cash+Card') };
+      for (let i = hi + 1; i < v.length; i++) {
+        const r = v[i], a = r[0];
+        if (String(a).trim() === '') continue;
+        let day = (typeof a === 'number') ? a : (Object.prototype.toString.call(a) === '[object Date]' ? a.getDate() : parseInt(String(a).replace(/^\D+/, ''), 10));
+        if (!(day >= 1 && day <= 31)) continue;
+        const n = k => parseFloat(r[ci[k]]) || 0;
+        const money = n('money'), card = n('card'), talon = n('t');
+        out.push([_ymd(new Date(year, mi, day)), 'manual', '', n('cars'), n('vip'), money, money - card - talon, card, talon, 0, 0,
+                  n('w'), n('m'), n('left'), n('cc'), '', '', '', '', '', '', '', '', f.getName()]);
+      }
+    }
+  }
+  // ERP days come from the ESGMonthlyMall sheets (one open per month) — the same
+  // per-shift records the archives hold, without re-opening ~100 archive files.
+  const mf = _getRootFolder().getFolders();
+  while (mf.hasNext()) {
+    const folder = mf.next();
+    if (isNaN(new Date('1 ' + folder.getName()).getTime())) continue;
+    const it = folder.getFilesByName(MONTHLY_PREFIX + folder.getName());
+    if (!it.hasNext()) { out.push([folder.getName(), 'error', 'no monthly sheet']); continue; }
+    const rows = _readMonthlyRecords(SpreadsheetApp.openById(it.next().getId())) || [];
+    rows.forEach(r => {
+      const n = k => parseFloat(r[k]) || 0;
+      out.push([_ymd(new Date(r.date)), 'erp', r.manager, n('washes'), n('vip'), n('revenue'), n('cash'), n('card'), n('talon'), n('reno'), n('pending'),
+                n('washers'), n('managerPay'), n('cash') - n('washers') - n('managerPay'), n('net'),
+                n('b1'), n('b2'), n('b3'), n('b4'), n('w1'), n('w2'), n('w3'), n('w4'), r.name]);
+    });
+  }
+  return out.map(_csvLine).join('\n') + '\n#END rows=' + (out.length - 1) + '\n';
+}
+
+// One row per wash for one month folder (day-of-month range d1..d2), compact codes
+function _exportCarsCsv(monthName, d1, d2) {
+  const CAR  = { 'სედანი':'S', 'ჯიპი':'J', 'ჯიპი XL':'X' };
+  const WASH = { 'სტანდარტი':'ST', 'VIP':'VIP', 'შიგნიდან':'IN', 'გარედან':'OUT', 'ორივე':'BOTH', 'სხვა':'OTH' };
+  const pay  = s => { s = String(s || ''); return s.indexOf('ქეში') >= 0 ? 'C' : s.indexOf('ბარათი') >= 0 ? 'K' : s.indexOf('ტალონი') >= 0 ? 'T'
+                       : s.indexOf('ტაბი') >= 0 ? 'P' : /reno/i.test(s) ? 'R' : s; };
+  const out = [['date','manager','plate','car','wash','box','cost','pay','status','time','phone']];
+  const it = _getRootFolder().getFoldersByName(monthName || '');
+  if (!it.hasNext()) return 'no such month folder: ' + monthName;
+  const files = it.next().getFilesByType(MimeType.GOOGLE_SHEETS);
+  while (files.hasNext()) {
+    const f = files.next();
+    if (f.getName().indexOf(DAILY_PREFIX) !== 0) continue;
+    const fm = f.getName().match(/(\d{2})\/(\d{2})\/(\d{2})\s*$/);
+    if (!fm) continue;
+    const day = +fm[1];
+    if (day < d1 || day > d2) continue;
+    const date = _ymd(new Date(2000 + +fm[3], +fm[2] - 1, day));
+    const sh = SpreadsheetApp.openById(f.getId()).getSheetByName('Daily Sheet');
+    if (!sh) continue;
+    const rng = sh.getDataRange();
+    const v  = rng.getValues(), dv = rng.getDisplayValues();   // display text for the time column (Sheets may parse "11:42" as a Date)
+    const tm = String(v[0][0]).match(/·\s*(.+?)\s*·/);
+    const manager = tm ? tm[1].trim() : '';
+    for (let i = 2; i < v.length; i++) {
+      const r = v[i];
+      if (String(r[0]).trim() === 'სულ' || String(r[1]).trim() === '') continue;
+      if (!(parseFloat(r[0]) > 0)) continue;
+      out.push([date, manager, String(r[1]).trim(), CAR[r[2]] || r[2], WASH[r[3]] || r[3], String(r[4]).replace(/\D/g, ''),
+                parseFloat(r[5]) || 0, pay(r[6]), String(r[7]).indexOf('Pend') === 0 ? 'U' : 'P', String(dv[i][8]).trim(), String(r[9]).trim() ? 1 : 0]);
+    }
+  }
+  return out.map(_csvLine).join('\n') + '\n#END rows=' + (out.length - 1) + '\n';
+}
+
+// ============================================================
 //  ALL-MONTHS MASTER  —  one sheet with every month: the hand-kept
 //  "<თვე> აღრიცხვა" sheets (MASTER_FOLDER_ID/<year>/) plus the ERP's
 //  ESGMonthlyMall sheets. Kept current by closeShift(); full rebuild via
@@ -1505,4 +1606,210 @@ function _getDailyEntries() {
   const last  = sheet.getLastRow();
   if (last<=1) return [];
   return sheet.getRange(2,1,last-1,9).getValues().filter(r=>r[0]);
+}
+
+// ============================================================
+//  AUDIT (analysis)  —  PIN-gated, read-only over the archives
+//  ?page=audit&pin=…&do=cache      → (re)build hidden AuditCars / AuditDays sheets
+//  ?page=audit&pin=…               → JSON statistics computed from the cache
+// ============================================================
+function _collectCars(monthName, d1, d2) {
+  const CAR  = { 'სედანი':'S', 'ჯიპი':'J', 'ჯიპი XL':'X' };
+  const WASH = { 'სტანდარტი':'ST', 'VIP':'VIP', 'შიგნიდან':'IN', 'გარედან':'OUT', 'ორივე':'BOTH', 'სხვა':'OTH' };
+  const pay  = s => { s = String(s || ''); return s.indexOf('ქეში') >= 0 ? 'C' : s.indexOf('ბარათი') >= 0 ? 'K' : s.indexOf('ტალონი') >= 0 ? 'T'
+                       : s.indexOf('ტაბი') >= 0 ? 'P' : /reno/i.test(s) ? 'R' : s; };
+  const out = [];
+  const it = _getRootFolder().getFoldersByName(monthName || '');
+  if (!it.hasNext()) return out;
+  const files = it.next().getFilesByType(MimeType.GOOGLE_SHEETS);
+  while (files.hasNext()) {
+    const f = files.next();
+    if (f.getName().indexOf(DAILY_PREFIX) !== 0) continue;
+    const fm = f.getName().match(/(\d{2})\/(\d{2})\/(\d{2})\s*$/);
+    if (!fm) continue;
+    const day = +fm[1];
+    if (day < (d1 || 1) || day > (d2 || 31)) continue;
+    const date = _ymd(new Date(2000 + +fm[3], +fm[2] - 1, day));
+    const sh = SpreadsheetApp.openById(f.getId()).getSheetByName('Daily Sheet');
+    if (!sh) continue;
+    const rng = sh.getDataRange();
+    const v = rng.getValues(), dv = rng.getDisplayValues();
+    const tm = String(v[0][0]).match(/·\s*(.+?)\s*·/);
+    const manager = tm ? tm[1].trim() : '';
+    for (let i = 2; i < v.length; i++) {
+      const r = v[i];
+      if (String(r[0]).trim() === 'სულ' || String(r[1]).trim() === '') continue;
+      if (!(parseFloat(r[0]) > 0)) continue;
+      out.push([date, manager, String(r[1]).trim(), CAR[r[2]] || String(r[2]), WASH[r[3]] || String(r[3]), String(r[4]).replace(/\D/g, ''),
+                parseFloat(r[5]) || 0, pay(r[6]), String(r[7]).indexOf('Pend') === 0 ? 'U' : 'P', String(dv[i][8]).trim(), String(r[9]).trim() ? 1 : 0]);
+    }
+  }
+  return out;
+}
+
+function _collectManualDays() {
+  const out = [];
+  const yrs = DriveApp.getFolderById(MASTER_FOLDER_ID).getFolders();
+  while (yrs.hasNext()) {
+    const yf = yrs.next(), year = parseInt(yf.getName(), 10);
+    if (!(year > 2000)) continue;
+    const files = yf.getFilesByType(MimeType.GOOGLE_SHEETS);
+    while (files.hasNext()) {
+      const f  = files.next();
+      const mi = GEO_MONTHS.indexOf(f.getName().trim().split(/\s+/)[0]);
+      if (mi < 0) continue;
+      const v  = SpreadsheetApp.openById(f.getId()).getSheets()[0].getDataRange().getValues();
+      const hi = v.findIndex(r => String(r[0]).trim() === 'Date');
+      if (hi < 0) continue;
+      const H = v[hi].map(x => String(x).trim());
+      const c = n => H.indexOf(n);
+      const ci = { cars:c('Cars Washed'), vip:c('VIP Washes'), money:c('Money Made'), w:c('Washers Pay'), m:c('Manager Pay'), t:c('Talons'), card:c('Card Pay'), left:c('Cash Left'), cc:c('Cash+Card') };
+      for (let i = hi + 1; i < v.length; i++) {
+        const r = v[i], a = r[0];
+        if (String(a).trim() === '') continue;
+        const day = (typeof a === 'number') ? a : (Object.prototype.toString.call(a) === '[object Date]' ? a.getDate() : parseInt(String(a).replace(/^\D+/, ''), 10));
+        if (!(day >= 1 && day <= 31)) continue;
+        const n = k => parseFloat(r[ci[k]]) || 0;
+        const money = n('money'), card = n('card'), talon = n('t');
+        out.push([_ymd(new Date(year, mi, day)), n('cars'), n('vip'), money, money - card - talon, card, talon, n('w'), n('m'), n('left'), n('cc'), f.getName()]);
+      }
+    }
+  }
+  return out;
+}
+
+function auditBuildCache() {
+  return _withMonthlyLock(() => {
+    const ss = _getSS();
+    const months = [];
+    const mf = _getRootFolder().getFolders();
+    while (mf.hasNext()) { const f = mf.next(); if (!isNaN(new Date('1 ' + f.getName()).getTime())) months.push(f.getName()); }
+    let cars = [];
+    months.forEach(m => { cars = cars.concat(_collectCars(m, 1, 31)); });
+    const days = _collectManualDays();
+    const write = (name, hdr, rows) => {
+      let sh = ss.getSheetByName(name);
+      if (!sh) sh = ss.insertSheet(name);
+      sh.clear();
+      sh.getRange(1, 1, 1, hdr.length).setValues([hdr]);
+      if (rows.length) sh.getRange(2, 1, rows.length, hdr.length).setNumberFormat('@').setValues(rows);
+      try { sh.hideSheet(); } catch(e) {}
+    };
+    write('AuditCars', ['date','manager','plate','car','wash','box','cost','pay','status','time','phone'], cars);
+    write('AuditDays', ['date','cars','vip','revenue','cash','card','talon','washers','mgr','cashLeft','net','file'], days);
+    return { success:true, months, cars:cars.length, manualDays:days.length };
+  });
+}
+
+function auditStats() {
+  const ss = _getSS();
+  const shC = ss.getSheetByName('AuditCars'), shD = ss.getSheetByName('AuditDays');
+  if (!shC || !shD) return { success:false, message:'no cache: call with do=cache first' };
+  const tz = Session.getScriptTimeZone();
+  const isD = v => Object.prototype.toString.call(v) === '[object Date]';
+  const D = v => isD(v) ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : String(v || '').trim();
+  const Tm = v => isD(v) ? Utilities.formatDate(v, tz, 'HH:mm') : String(v || '').trim();
+  const N = v => parseFloat(v) || 0;
+  const r2 = x => Math.round(x * 100) / 100;
+  const dow = d => new Date(d + 'T00:00:00').getDay();
+  const normPlate = p => p.replace(/[^A-Z0-9]/g, '');
+
+  const cars = shC.getDataRange().getValues().slice(1).filter(r => r[0]).map(r => ({
+    date: D(r[0]), mgr: String(r[1]).trim().toUpperCase(), plate: String(r[2]).trim().toUpperCase(),
+    car: String(r[3]).trim(), wash: String(r[4]).trim(), box: N(r[5]), cost: N(r[6]),
+    pay: String(r[7]).trim(), status: String(r[8]).trim(), time: Tm(r[9]), phone: N(r[10])
+  }));
+  cars.forEach(c => { c.hour = parseInt(c.time.slice(0, 2), 10); c.month = c.date.slice(0, 7); c.dow = dow(c.date); });
+
+  const bump = (o, k, c, extra) => { const e = o[k] || (o[k] = { n:0, rev:0 }); e.n++; e.rev += c.cost; if (extra) extra(e, c); return e; };
+  const finish = o => { Object.keys(o).forEach(k => { const e = o[k]; e.rev = r2(e.rev); e.avg = e.n ? r2(e.rev / e.n) : 0; }); return o; };
+
+  const byMonth = {}, byCar = {}, byWash = {}, byCombo = {}, byPay = {}, byHour = {}, byBox = {}, byMgr = {}, plates = {}, talonPlates = {}, renoByMonth = {};
+  const dayMap = {};
+  cars.forEach(c => {
+    bump(byMonth, c.month, c, (e, c) => { e.vip = (e.vip || 0) + (c.wash === 'VIP' ? 1 : 0); e.vipRev = (e.vipRev || 0) + (c.wash === 'VIP' ? c.cost : 0);
+      ['C','K','T','R','P'].forEach(p => { e[p] = (e[p] || 0) + (c.pay === p ? c.cost : 0); }); });
+    bump(byCar, c.car || '?', c); bump(byWash, c.wash || '?', c); bump(byCombo, (c.car || '?') + '|' + (c.wash || '?'), c);
+    bump(byPay, c.pay || '?', c); bump(byHour, isNaN(c.hour) ? '?' : c.hour, c); bump(byBox, c.box || 0, c);
+    bump(byMgr, c.mgr || '?', c, (e, c) => {
+      e.vip = (e.vip || 0) + (c.wash === 'VIP' ? 1 : 0); e.vipRev = (e.vipRev || 0) + (c.wash === 'VIP' ? c.cost : 0);
+      e.talon = (e.talon || 0) + (c.pay === 'T' ? 1 : 0); e.talonRev = (e.talonRev || 0) + (c.pay === 'T' ? c.cost : 0);
+      e.card = (e.card || 0) + (c.pay === 'K' ? c.cost : 0); e.phone = (e.phone || 0) + c.phone;
+      e.upsell = (e.upsell || 0) + (c.wash === 'IN' || c.wash === 'BOTH' || c.wash === 'OTH' ? 1 : 0);
+      (e.dates = e.dates || {})[c.date] = 1; });
+    const p = normPlate(c.plate);
+    if (p && !/^RENO/.test(p)) bump(plates, p, c);
+    if (c.pay === 'T') bump(talonPlates, c.plate, c);
+    if (c.pay === 'R') bump(renoByMonth, c.month, c);
+    const d = dayMap[c.date] || (dayMap[c.date] = { date:c.date, dow:c.dow, mgr:c.mgr, n:0, rev:0, vip:0, card:0, first:'99:99', last:'00:00', boxes:{}, hours:{} });
+    d.n++; d.rev += c.cost; if (c.wash === 'VIP') d.vip++; if (c.pay === 'K') d.card += c.cost;
+    if (c.time && c.time < d.first) d.first = c.time; if (c.time && c.time > d.last) d.last = c.time;
+    d.boxes[c.box] = 1; d.hours[c.hour] = (d.hours[c.hour] || 0) + 1;
+  });
+  Object.keys(byMonth).forEach(m => { byMonth[m].days = Object.keys(dayMap).filter(d => d.slice(0, 7) === m).length; });
+  Object.keys(byMgr).forEach(k => { const e = byMgr[k]; e.shifts = Object.keys(e.dates).length; delete e.dates;
+    e.revPerShift = r2(e.rev / e.shifts); e.carsPerShift = r2(e.n / e.shifts); e.vipShare = r2(e.vip / e.n * 100); e.cardShare = r2(e.card / e.rev * 100); e.upsellShare = r2(e.upsell / e.n * 100); });
+
+  // list price = modal price per car|wash combo; under/over-list on standard washes
+  const mode = {};
+  Object.keys(byCombo).forEach(k => { const cnt = {}; cars.filter(c => (c.car || '?') + '|' + (c.wash || '?') === k).forEach(c => { cnt[c.cost] = (cnt[c.cost] || 0) + 1; });
+    mode[k] = +Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a - b)[0]; byCombo[k].mode = mode[k]; });
+  let underN = 0, underLost = 0, overN = 0, overExtra = 0; const anomalies = []; const underByMgr = {};
+  cars.forEach(c => { const k = (c.car || '?') + '|' + (c.wash || '?'); const m = mode[k];
+    if (c.wash === 'ST' && m) { if (c.cost < m) { underN++; underLost += m - c.cost; const u = underByMgr[c.mgr] || (underByMgr[c.mgr] = { n:0, lost:0 }); u.n++; u.lost += m - c.cost; }
+                                else if (c.cost > m) { overN++; overExtra += c.cost - m; } }
+    if (c.cost <= 10 || c.cost >= 300 || (c.wash === 'ST' && m && c.cost < m * 0.75)) anomalies.push([c.date, c.mgr, c.plate, c.car, c.wash, c.cost, c.pay]); });
+  Object.keys(underByMgr).forEach(k => { underByMgr[k].lost = r2(underByMgr[k].lost); });
+
+  const days = Object.keys(dayMap).sort().map(k => { const d = dayMap[k]; const peakH = Object.keys(d.hours).sort((a, b) => d.hours[b] - d.hours[a])[0];
+    return [d.date, d.dow, d.mgr, d.n, r2(d.rev), d.vip, d.first, d.last, Object.keys(d.boxes).filter(b => b !== '0').length, r2(d.card / d.rev * 100), +peakH, d.hours[peakH]]; });
+  const byDow = {};
+  days.forEach(d => { const e = byDow[d[1]] || (byDow[d[1]] = { days:0, n:0, rev:0 }); e.days++; e.n += d[3]; e.rev += d[4]; });
+  Object.keys(byDow).forEach(k => { const e = byDow[k]; e.carsPerDay = r2(e.n / e.days); e.revPerDay = r2(e.rev / e.days); e.rev = r2(e.rev); });
+  const singleBox = days.filter(d => d[8] <= 1);
+  const sorted = a => a.slice().sort((x, y) => x - y);
+  const med = a => { const s = sorted(a); return s.length ? s[Math.floor(s.length / 2)] : null; };
+  const pct = (a, p) => { const s = sorted(a); return s.length ? s[Math.min(s.length - 1, Math.floor(s.length * p))] : null; };
+  const nList = days.map(d => d[3]), revList = days.map(d => d[4]);
+  const firsts = days.map(d => d[6]).filter(t => t !== '99:99').sort(), lasts = days.map(d => d[7]).filter(t => t !== '00:00').sort();
+  const plateArr = Object.keys(plates).map(k => ({ p:k, n:plates[k].n, rev:r2(plates[k].rev) }));
+  const rep = n => plateArr.filter(x => x.n >= n);
+  const totalRev = r2(cars.reduce((s, c) => s + c.cost, 0));
+
+  // manual day rows (pre-ERP)
+  const man = shD.getDataRange().getValues().slice(1).filter(r => r[0]).map(r => ({ date:D(r[0]), cars:N(r[1]), vip:N(r[2]), rev:N(r[3]), cash:N(r[4]), card:N(r[5]), talon:N(r[6]), w:N(r[7]), m:N(r[8]), left:N(r[9]), net:N(r[10]) }));
+  const mMonth = {}, mDow = {}; let zeroDays = 0;
+  man.forEach(d => { const k = d.date.slice(0, 7); const e = mMonth[k] || (mMonth[k] = { days:0, cars:0, vip:0, rev:0, cash:0, card:0, talon:0, washers:0, mgr:0, cashLeft:0, net:0 });
+    if (d.cars > 0) { e.days++; } else { zeroDays++; }
+    e.cars += d.cars; e.vip += d.vip; e.rev += d.rev; e.cash += d.cash; e.card += d.card; e.talon += d.talon; e.washers += d.w; e.mgr += d.m; e.cashLeft += d.left; e.net += d.net;
+    if (d.cars > 0) { const w = mDow[dow(d.date)] || (mDow[dow(d.date)] = { days:0, cars:0, rev:0 }); w.days++; w.cars += d.cars; w.rev += d.rev; } });
+  Object.keys(mMonth).forEach(k => { const e = mMonth[k]; ['rev','cash','card','washers','mgr','cashLeft','net'].forEach(f => { e[f] = r2(e[f]); }); e.revPerDay = e.days ? r2(e.rev / e.days) : 0; e.avgTicket = e.cars ? r2(e.rev / e.cars) : 0; });
+  Object.keys(mDow).forEach(k => { const e = mDow[k]; e.carsPerDay = r2(e.cars / e.days); e.revPerDay = r2(e.rev / e.days); e.rev = r2(e.rev); });
+  const manTop = man.filter(d => d.cars > 0).sort((a, b) => b.rev - a.rev).slice(0, 10).map(d => [d.date, dow(d.date), d.cars, d.rev]);
+
+  return {
+    success:true, generated:new Date().toISOString(), tz,
+    erp: {
+      n: cars.length, rev: totalRev, avg: r2(totalRev / cars.length), from: days[0] && days[0][0], to: days[days.length - 1] && days[days.length - 1][0], shiftDays: days.length,
+      byMonth: finish(byMonth), byCar: finish(byCar), byWash: finish(byWash), byCombo: finish(byCombo), byPay: finish(byPay),
+      byHour: finish(byHour), byBox: finish(byBox), byDow, byMgr: finish(byMgr),
+      list: { underN, underLost: r2(underLost), overN, overExtra: r2(overExtra), underByMgr },
+      anomalies: anomalies.slice(0, 60), anomaliesTotal: anomalies.length,
+      talon: { n: cars.filter(c => c.pay === 'T').length, rev: r2(cars.filter(c => c.pay === 'T').reduce((s, c) => s + c.cost, 0)),
+               plates: Object.keys(talonPlates).map(k => [k, talonPlates[k].n, r2(talonPlates[k].rev)]).sort((a, b) => b[1] - a[1]).slice(0, 15) },
+      reno: finish(renoByMonth),
+      pending: { n: cars.filter(c => c.status === 'U').length, rev: r2(cars.filter(c => c.status === 'U').reduce((s, c) => s + c.cost, 0)) },
+      plates: { distinct: plateArr.length, rep2: rep(2).length, rep3: rep(3).length, rep5: rep(5).length,
+                washesFromRepeat: rep(2).reduce((s, x) => s + x.n, 0), revFromRepeat: r2(rep(2).reduce((s, x) => s + x.rev, 0)),
+                top: plateArr.sort((a, b) => b.n - a.n).slice(0, 25).map(x => [x.p, x.n, x.rev]) },
+      phone: { captured: cars.filter(c => c.phone).length },
+      dayStats: { avgCars: r2(nList.reduce((s, x) => s + x, 0) / nList.length), medCars: med(nList), minCars: Math.min.apply(null, nList), maxCars: Math.max.apply(null, nList), p10Cars: pct(nList, 0.1), p90Cars: pct(nList, 0.9),
+                  avgRev: r2(revList.reduce((s, x) => s + x, 0) / revList.length), medRev: med(revList), minRev: Math.min.apply(null, revList), maxRev: Math.max.apply(null, revList),
+                  medFirst: med(firsts), medLast: med(lasts), earliest: firsts[0], latest: lasts[lasts.length - 1],
+                  daysOver1600: days.filter(d => d[4] >= 1600).length, daysOver2000: days.filter(d => d[4] >= 2000).length },
+      singleBoxDays: { days: singleBox.length, n: singleBox.reduce((s, d) => s + d[3], 0), rev: r2(singleBox.reduce((s, d) => s + d[4], 0)), dates: singleBox.map(d => d[0]) },
+      days
+    },
+    manual: { days: man.length, zeroDays, byMonth: mMonth, byDow: mDow, top: manTop }
+  };
 }
