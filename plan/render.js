@@ -2,12 +2,13 @@
 const { chromium } = require('C:/Users/nikam/Desktop/Claude/vertical-ad-generator/node_modules/playwright');
 const fs = require('fs'), path = require('path');
 const DIR = __dirname;
+const BASE = process.argv[2] || 'ESG_improvement_plan';   // node render.js [basename]
 
 (async () => {
   const logoB64 = fs.readFileSync(path.join(DIR, 'logo-dark.png')).toString('base64');
-  const html = fs.readFileSync(path.join(DIR, 'ESG_improvement_plan.html'), 'utf8')
+  const html = fs.readFileSync(path.join(DIR, BASE + '.html'), 'utf8')
     .split('src="logo-dark.png"').join('src="data:image/png;base64,' + logoB64 + '"');
-  fs.writeFileSync(path.join(DIR, 'ESG_improvement_plan.standalone.html'), html);
+  fs.writeFileSync(path.join(DIR, BASE + '.standalone.html'), html);
 
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 794, height: 1123 }, deviceScaleFactor: 2 });
@@ -22,13 +23,13 @@ const DIR = __dirname;
   }).join('\n'));
   console.log(report);
 
-  await page.pdf({ path: path.join(DIR, 'ESG_improvement_plan.pdf'), format: 'A4', printBackground: true, preferCSSPageSize: true,
+  await page.pdf({ path: path.join(DIR, BASE + '.pdf'), format: 'A4', printBackground: true, preferCSSPageSize: true,
                    margin: { top: 0, right: 0, bottom: 0, left: 0 } });
   const n = await page.evaluate(() => document.querySelectorAll('.page').length);
   for (let i = 0; i < n; i++) {
     const el = (await page.$$('.page'))[i];
-    await el.screenshot({ path: path.join(DIR, 'preview-p' + (i + 1) + '.png') });
+    await el.screenshot({ path: path.join(DIR, BASE + '-p' + (i + 1) + '.png') });
   }
   await browser.close();
-  console.log('rendered ' + n + ' pages → ESG_improvement_plan.pdf');
+  console.log('rendered ' + n + ' pages → ' + BASE + '.pdf');
 })().catch(e => { console.error('RENDER FAILED', e); process.exit(1); });

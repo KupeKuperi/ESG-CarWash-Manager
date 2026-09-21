@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+<meta charset="UTF-8">
+<title>ESG ავტოსამრეცხაო — გაუმჯობესების გეგმა</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@300;400;600;700;900&family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#313647;--ink:#1a1f2b;--ink2:#4b5364;--ink3:#7c8494;--line:#e3e6ec;--blue:#3fa9e0;--blue2:#e7f4fc;--green:#0f9d58;--green2:#e6f6ee;--amber:#d98a00;--amber2:#fff4dc;--red:#d43f3a;--red2:#fdecec}
+@page{size:A4;margin:0}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#fff;color:var(--ink);font-family:'Noto Sans Georgian','Inter',sans-serif;font-size:9.2pt;line-height:1.42;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{width:210mm;height:297mm;overflow:hidden;position:relative;page-break-after:always;background:#fff}
+.page:last-child{page-break-after:auto}
+.inner{position:absolute;top:16mm;left:16mm;right:16mm;bottom:16mm;overflow:hidden}
+.foot{position:absolute;left:16mm;right:16mm;bottom:8mm;display:flex;justify-content:space-between;font-size:7.5pt;color:var(--ink3);border-top:1px solid var(--line);padding-top:2mm}
+h1{font-size:22pt;font-weight:900;line-height:1.15}
+h2{font-size:14.5pt;font-weight:900;line-height:1.2;margin:0 0 3mm}
+h3{font-size:10.5pt;font-weight:700;margin:4mm 0 1.5mm}
+p{margin:0 0 2.5mm}
+.lead{font-size:10.5pt;color:var(--ink2)}
+.kicker{font-size:8pt;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);margin-bottom:1.5mm}
+ul{margin:0 0 2.5mm 4.5mm}
+li{margin-bottom:1.2mm}
+b{font-weight:700}
+.muted{color:var(--ink3)}
+.small{font-size:8.5pt}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;margin:1.5mm 0 3mm}
+th{font-size:7.4pt;font-weight:700;color:var(--ink2);text-align:left;padding:1.3mm 2mm;background:#f3f5f8;border-bottom:1.5px solid var(--line);white-space:nowrap}
+td{padding:1.2mm 2mm;border-bottom:1px solid var(--line);vertical-align:top;font-size:8.6pt}
+td.n,th.n{text-align:right;white-space:nowrap}
+tr.total td{font-weight:700;background:#f8f9fb}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin:3mm 0 4mm}
+.kpi{border:1px solid var(--line);border-radius:2mm;padding:3mm 3.5mm}
+.kpi .v{font-size:17pt;font-weight:900;line-height:1.1}
+.kpi .l{font-size:7.5pt;color:var(--ink3);margin-top:1mm;text-transform:uppercase;letter-spacing:.04em}
+.kpi .d{font-size:8pt;margin-top:1mm;font-weight:600}
+.up{color:var(--green)}.down{color:var(--red)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:6mm}
+.box{border-radius:2mm;padding:3.5mm 4mm;margin:2mm 0 3mm}
+.box.blue{background:var(--blue2)}.box.green{background:var(--green2)}.box.amber{background:var(--amber2)}.box.red{background:var(--red2)}
+.box h3{margin-top:0}
+.pill{display:inline-block;font-size:7pt;font-weight:700;padding:.4mm 1.8mm;border-radius:1mm;letter-spacing:.04em;text-transform:uppercase;vertical-align:middle}
+.pill.g{background:var(--green2);color:var(--green)}
+.bar{height:2.2mm;background:#eef1f5;border-radius:1mm;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--blue)}
+.barrow{display:grid;grid-template-columns:24mm 1fr 18mm;align-items:center;gap:2.5mm;font-size:8.5pt;margin-bottom:1.3mm}
+.barrow .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink2)}
+.cover{background:var(--navy);color:#fff}
+.cover .inner{top:0;left:0;right:0;bottom:0;padding:22mm 20mm}
+.cover .logo{width:30mm;display:block}
+.cover h1{font-size:30pt;margin-top:60mm;color:#fff}
+.cover .sub{font-size:13pt;font-weight:300;color:rgba(255,255,255,.8);margin-top:4mm}
+.cover .meta{position:absolute;left:20mm;bottom:22mm;font-size:9pt;color:rgba(255,255,255,.7);line-height:1.7}
+.cover .meta b{color:#fff;font-weight:600}
+.num{display:inline-flex;align-items:center;justify-content:center;width:7mm;height:7mm;border-radius:50%;background:var(--navy);color:#fff;font-weight:800;font-size:10pt;margin-right:2.5mm;vertical-align:middle}
+.lever{border:1px solid var(--line);border-radius:2mm;padding:3.5mm 4mm 3mm;margin-bottom:3mm}
+.lever .hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5mm;gap:4mm}
+.lever .hd h3{margin:0;font-size:10.5pt}
+.lever .est{font-size:9pt;font-weight:800;color:var(--green);white-space:nowrap;padding-top:1mm}
+.check{list-style:none;margin-left:0}
+.check li{padding-left:6mm;position:relative}
+.check li:before{content:'☐';position:absolute;left:0;top:-.2mm;color:var(--ink3)}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ ყდა ═══════════ -->
+<div class="page cover">
+  <div class="inner">
+    <img class="logo" src="logo-dark.png" alt="ESG">
+    <h1>ავტოსამრეცხაოს<br>გაუმჯობესების გეგმა</h1>
+    <div class="sub">აუდიტის შედეგები და 90-დღიანი გეგმა შემოსავლის გასაზრდელად —<br>იმავე ბოქსებით და იმავე გუნდით</div>
+    <div class="meta">
+      <b>ESG ავტოსამრეცხაო · თბილისი მოლი</b><br>
+      მომზადებულია 2026 წლის 21 სექტემბერს<br>
+      მონაცემები: ERP-ში დაფიქსირებული 3,744 რეცხვა (2 ივნ – 20 სექ 2026, 107 ცვლა)<br>
+      + 365 დღის ჩანაწერი ხელით ნაწარმოები ცხრილებიდან (მაისი 2025 – აპრილი 2026)
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ 1. შეჯამება ═══════════ -->
+<div class="page">
+  <div class="inner">
+    <div class="kicker">1 · შეჯამება</div>
+    <h2>ბიზნესი იზრდება. რეზერვი პროდუქტების მიქსსა და განმეორებით ვიზიტებშია, არა სიმძლავრეში.</h2>
+    <p class="lead">2026 წლის ყველა თვე 13–31%-ით აღემატება 2025 წლის იმავე თვეს, სექტემბერი კი დღიურ შემოსავალში საუკეთესო თვეა ბიზნესის ისტორიაში. ამავდროულად ოთხი ბოქსი პიკის საათებშიც (14:00–17:00) მხოლოდ ნახევრადაა დატვირთული, მომხმარებლების 88% ყველაზე იაფ პროდუქტს ყიდულობს, მანქანების 60% კი აღარ ბრუნდება. ამ სამი საკითხის მოგვარება <b>თვეში დაახლოებით +12,000–15,000 ₾-ს</b> ნიშნავს ერთ კვარტალში — ახალი აღჭურვილობის გარეშე.</p>
+
+    <div class="kpis">
+      <div class="kpi"><div class="v">1,645 ₾</div><div class="l">შემოსავალი დღეში · სექ 2026</div><div class="d up">+51% სექ 2025-თან</div></div>
+      <div class="kpi"><div class="v">36.5</div><div class="l">მანქანა დღეში · სექ 2026</div><div class="d up">+30% სექ 2025-თან</div></div>
+      <div class="kpi"><div class="v">45.1 ₾</div><div class="l">საშუალო ჩეკი · სექ 2026</div><div class="d up">+16% სექ 2025-თან</div></div>
+      <div class="kpi"><div class="v">46%</div><div class="l">ხელფასების წილი შემოსავალში</div><div class="d down">2025-ში იყო 43%</div></div>
+    </div>
+
+    <div class="cols">
+      <div>
+        <h3>რა მუშაობს</h3>
+        <ul>
+          <li>იზრდება <b>როგორც</b> რაოდენობა, <b>ისე</b> ჩეკი — ზრდა რეალურია, არა მხოლოდ ფასის ხარჯზე.</li>
+          <li>მენეჯერები ფასს გონივრულად ადგენენ: 120 შემთხვევა ტარიფზე ზევით (+1,697 ₾), მხოლოდ 66 ქვევით (−782 ₾).</li>
+          <li>შაბათ-კვირა ძლიერია: შაბათი 1,860 ₾/დღე, კვირა 1,770 ₾/დღე.</li>
+          <li>ერთგული ბირთვი არსებობს: 559 ნომერი 2+-ჯერ დაბრუნდა, 51 — 5+-ჯერ.</li>
+          <li>Reno-ს კორპორატიული ხელშეკრულება მუშაობს — B2B მოდელი, რომლის გამეორებაც შეიძლება.</li>
+          <li>ხელფასები ცვლადია (35–40% თითო რეცხვაზე), ამიტომ სუსტი დღე თვეს არ ანგრევს.</li>
+          <li>დიდი რეზერვი: პიკის საათში 4 ბოქსზე საშუალოდ 4.7 მანქანა.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>რა აფერხებს</h3>
+        <ul>
+          <li><b>შუალედური პროდუქტი არ არსებობს.</b> სტანდარტი 30–50 ₾, შემდეგ პირდაპირ VIP 100–170 ₾ (3-ჯერ მეტი). შუაში არაფერი იყიდება.</li>
+          <li><b>მომხმარებლების შენარჩუნება არ ხდება.</b> 2,741 ნომერი, 60% ერთჯერადი; ტელეფონი ვიზიტების 1%-ზეა ჩაწერილი.</li>
+          <li><b>ცარიელი დილები და სუსტი სამშაბათი/ოთხშაბათი.</b> რეცხვების 13% 12:00-მდე; სამშ/ოთხშ ≈ 1,220 ₾/დღე, ხუთშ–კვირა კი 1,650–1,860.</li>
+          <li><b>დანაკარგები ≈ 1,500 ₾/თვე</b>: უფასო რეცხვები შემოსავლად ჩაწერილი, აუკრეფავი ტაბები, ფასის შეცდომები (ერთი 501 ₾-იანი ჩანაწერი).</li>
+          <li><b>მონაცემთა დისციპლინა:</b> 13 დღეს ყველა მანქანა Box 1-ზეა ჩაწერილი; 4 ცვლა არ დახურულა; 2026 წლის მაისის ჩანაწერები საერთოდ არ არსებობს.</li>
+          <li><b>ქეშის კონტროლი:</b> შემოსავლის 71% ქეშია, ცვლის დახურვისას შედარება არ ხდება; ბარათის წილი მენეჯერების მიხედვით 17–35%-ს შორის მერყეობს.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="box blue">
+      <h3>სამი პრიორიტეტი</h3>
+      <p><b>1. მეტი გაყიდვა თითო მანქანაზე</b> — დამატებითი სერვისები და „სტანდარტი+“ ავსებს 40→120 ₾ სიცარიელეს. <b>2. მანქანების დაბრუნება</b> — ლოიალობა ნომრით და აბონემენტი მოლის თანამშრომლებისთვის. <b>3. ცარიელი საათების შევსება</b> — დილის ცვილი, სამშ/ოთხშ ორმაგი ბეჭდები, კორპორატიული ხელშეკრულებები. ამ სამივეს ქვეშ: დანაკარგების და ცვლის დახურვის კონტროლის მოგვარება.</p>
+    </div>
+  </div>
+  <div class="foot"><span>ESG ავტოსამრეცხაო · გაუმჯობესების გეგმა</span><span>1 · შეჯამება</span></div>
+</div>
+
+<!-- ═══════════ 2. ციფრები ═══════════ -->
+<div class="page">
+  <div class="inner">
+    <div class="kicker">2 · სად დგას ბიზნესი</div>
+    <h2>16 თვის შედეგები</h2>
+
+    <table>
+      <thead><tr><th style="width:34mm">თვე</th><th class="n">დღე</th><th class="n">მანქანა</th><th class="n">შემოს. ₾</th><th class="n">₾ / დღე</th><th class="n">საშ. ჩეკი</th><th class="n">ბარათი %</th><th class="n">მრეცხ. ₾</th><th class="n">მენეჯ. ₾</th><th class="n">ნარჩენი*</th></tr></thead>
+      <tbody>
+        <tr><td>მაისი 2025</td><td class="n">21</td><td class="n">657</td><td class="n">26,319</td><td class="n">1,253</td><td class="n">40.1</td><td class="n">20%</td><td class="n">9,623</td><td class="n">2,009</td><td class="n">14,552</td></tr>
+        <tr><td>ივნისი 2025</td><td class="n">29</td><td class="n">870</td><td class="n">34,394</td><td class="n">1,186</td><td class="n">39.5</td><td class="n">20%</td><td class="n">12,170</td><td class="n">2,681</td><td class="n">17,988</td></tr>
+        <tr><td>ივლისი 2025</td><td class="n">29</td><td class="n">910</td><td class="n">35,324</td><td class="n">1,218</td><td class="n">38.8</td><td class="n">18%</td><td class="n">12,545</td><td class="n">2,967</td><td class="n">17,193</td></tr>
+        <tr><td>აგვისტო 2025</td><td class="n">30</td><td class="n">911</td><td class="n">37,273</td><td class="n">1,242</td><td class="n">40.9</td><td class="n">12%</td><td class="n">12,805</td><td class="n">3,654</td><td class="n">18,449</td></tr>
+        <tr><td>სექტემბერი 2025</td><td class="n">29</td><td class="n">816</td><td class="n">31,650</td><td class="n">1,091</td><td class="n">38.8</td><td class="n">14%</td><td class="n">11,291</td><td class="n">3,440</td><td class="n">16,157</td></tr>
+        <tr><td>ოქტომბერი 2025</td><td class="n">30</td><td class="n">796</td><td class="n">32,531</td><td class="n">1,084</td><td class="n">40.9</td><td class="n">16%</td><td class="n">11,410</td><td class="n">3,334</td><td class="n">16,055</td></tr>
+        <tr><td>ნოემბერი 2025</td><td class="n">30</td><td class="n">997</td><td class="n">38,758</td><td class="n">1,292</td><td class="n">38.9</td><td class="n">21%</td><td class="n">13,865</td><td class="n">3,786</td><td class="n">19,910</td></tr>
+        <tr><td>დეკემბერი 2025</td><td class="n">31</td><td class="n">1,167</td><td class="n">45,208</td><td class="n">1,458</td><td class="n">38.7</td><td class="n">24%</td><td class="n">16,120</td><td class="n">4,564</td><td class="n">22,674</td></tr>
+        <tr><td>იანვარი 2026</td><td class="n">28</td><td class="n">1,057</td><td class="n">42,204</td><td class="n">1,507</td><td class="n">39.9</td><td class="n">30%</td><td class="n">15,001</td><td class="n">3,397</td><td class="n">22,656</td></tr>
+        <tr><td>თებერვალი 2026</td><td class="n">26</td><td class="n">819</td><td class="n">34,768</td><td class="n">1,337</td><td class="n">42.5</td><td class="n">31%</td><td class="n">12,416</td><td class="n">3,615</td><td class="n">17,192</td></tr>
+        <tr><td>მარტი 2026</td><td class="n">31</td><td class="n">822</td><td class="n">34,406</td><td class="n">1,110</td><td class="n">41.9</td><td class="n">30%</td><td class="n">12,292</td><td class="n">3,963</td><td class="n">17,496</td></tr>
+        <tr><td>აპრილი 2026</td><td class="n">28</td><td class="n">958</td><td class="n">41,159</td><td class="n">1,470</td><td class="n">43.0</td><td class="n">27%</td><td class="n">14,731</td><td class="n">4,155</td><td class="n">20,946</td></tr>
+        <tr><td class="muted">მაისი 2026</td><td class="n muted" colspan="9">ჩანაწერები არ არსებობს — არც ცხრილებში, არც ERP-ში (≈ 40,000 ₾ დოკუმენტაციის გარეშე)</td></tr>
+        <tr><td>ივნისი 2026</td><td class="n">29</td><td class="n">1,059</td><td class="n">45,150</td><td class="n">1,557</td><td class="n">42.6</td><td class="n">26%</td><td class="n">16,164</td><td class="n">4,773</td><td class="n">22,848</td></tr>
+        <tr><td>ივლისი 2026</td><td class="n">29</td><td class="n">974</td><td class="n">42,156</td><td class="n">1,454</td><td class="n">43.3</td><td class="n">25%</td><td class="n">15,111</td><td class="n">4,287</td><td class="n">21,511</td></tr>
+        <tr><td>აგვისტო 2026</td><td class="n">29</td><td class="n">981</td><td class="n">42,204</td><td class="n">1,455</td><td class="n">43.0</td><td class="n">27%</td><td class="n">15,089</td><td class="n">4,211</td><td class="n">21,744</td></tr>
+        <tr><td>სექტემბერი 2026 <span class="muted">(20-მდე)</span></td><td class="n">20</td><td class="n">730</td><td class="n">32,895</td><td class="n">1,645</td><td class="n">45.1</td><td class="n">27%</td><td class="n">≈12,400</td><td class="n">≈2,700</td><td class="n">≈17,800</td></tr>
+      </tbody>
+    </table>
+    <p class="small muted" style="font-size:7.8pt">ხელით ნაწარმოები თვეები დღიური სტრიქონების ჯამია (მათი ჯამის სტრიქონები არასრულია). ERP-ის თვეები დღიური არქივებიდანაა. *ნარჩენი ხელფასების შემდეგ — ქირა, კომუნალური, ქიმია და ბარათის საკომისიო არსად არ ფიქსირდება.</p>
+
+    <div class="cols">
+      <div>
+        <h3>წლიური შედარება</h3>
+        <ul>
+          <li>ივნისი: 34.4K → 45.2K (<b>+31%</b>) · ივლისი: 35.3K → 42.2K (<b>+19%</b>) · აგვისტო: 37.3K → 42.2K (<b>+13%</b>)</li>
+          <li>სექტემბრის ტემპი: 1,091 → 1,645 ₾/დღე (<b>+51%</b>), ნაწილობრივ საღამოს გახანგრძლივების ხარჯზე.</li>
+          <li>ზაფხულის პლატო: ივნისი პიკი იყო, ივლისმა და აგვისტომ ზრდა არ გააგრძელა.</li>
+          <li>ხელფასების წილი 43%-დან 46%-მდე გაიზარდა VIP-ის წილისა და ბონუსების ზრდასთან ერთად.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>როგორია ჩვეულებრივი დღე (ივნ–სექ 2026)</h3>
+        <ul>
+          <li>მედიანა 34 მანქანა და 1,540 ₾; სუსტი დღე 23 მანქანაა, ძლიერი — 49.</li>
+          <li>პირველი მანქანა მედიანურ დღეს 10:45-ზე, ბოლო 19:34-ზე.</li>
+          <li>107 ცვლიდან 47-მა გადალახა 1,600 ₾; 18-მა — 2,000 ₾.</li>
+          <li>შარშანდელი ოქტომბერი ყველაზე სუსტი სრული თვე იყო (1,084 ₾/დღე) — შემოდგომის კამპანია ახლავე დაგეგმეთ.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>ESG ავტოსამრეცხაო · გაუმჯობესების გეგმა</span><span>2 · ციფრები</span></div>
+</div>
+
+<!-- ═══════════ 3. რა იყიდება ═══════════ -->
+<div class="page">
+  <div class="inner">
+    <div class="kicker">3 · რა იყიდება, როდის და ვისზე</div>
+    <h2>პროდუქტების მიქსი, საათები, კვირის დღეები, მომხმარებლები</h2>
+
+    <div class="cols">
+      <div>
+        <h3>რეცხვის ტიპები (3,744 რეცხვა)</h3>
+        <div class="barrow"><span>სტანდარტი</span><div class="bar"><i style="width:88.5%"></i></div><span class="n">88.5%</span></div>
+        <div class="barrow"><span>VIP</span><div class="bar"><i style="width:5.6%"></i></div><span class="n">5.6%</span></div>
+        <div class="barrow"><span>მხოლოდ გარედან</span><div class="bar"><i style="width:4.5%"></i></div><span class="n">4.5%</span></div>
+        <div class="barrow"><span>სხვა</span><div class="bar"><i style="width:0.9%"></i></div><span class="n">0.9%</span></div>
+        <div class="barrow"><span>მხოლოდ შიგნიდან</span><div class="bar"><i style="width:0.4%"></i></div><span class="n">0.4%</span></div>
+        <p class="small muted">ქვევიდან რეცხვა, ბეწვისგან გაწმენდა და 300 ₾-იანი ქიმწმენდა 3.5 თვეში ≈ 0-ჯერ გაიყიდა. „ორივე“ არასდროს გაყიდულა. მინივენები XL-ად იწერება (ERP-ში ასეთი ტიპი არ არის).</p>
+
+        <h3>მანქანის ტიპები</h3>
+        <table>
+          <thead><tr><th>ტიპი</th><th class="n">წილი</th><th class="n">საშ. ₾</th><th class="n">VIP-ის რეალურად გადახდილი ფასი</th></tr></thead>
+          <tbody>
+            <tr><td>სედანი</td><td class="n">36%</td><td class="n">33.6</td><td class="n">100–130 (საშ. 112)</td></tr>
+            <tr><td>ჯიპი</td><td class="n">41%</td><td class="n">43.8</td><td class="n">100–170 (საშ. 127)</td></tr>
+            <tr><td>ჯიპი XL</td><td class="n">23%</td><td class="n">58.2</td><td class="n">100–220 (საშ. 141) — <b>მენიუში არ არის</b></td></tr>
+          </tbody>
+        </table>
+
+        <h3>გადახდა</h3>
+        <table>
+          <thead><tr><th>მეთოდი</th><th class="n">რეცხვა</th><th class="n">₾</th><th class="n">წილი</th></tr></thead>
+          <tbody>
+            <tr><td>ქეში</td><td class="n">2,582</td><td class="n">115,311</td><td class="n">71%</td></tr>
+            <tr><td>ბარათი</td><td class="n">1,037</td><td class="n">42,702</td><td class="n">26%</td></tr>
+            <tr><td>ტალონი / უფასო</td><td class="n">79</td><td class="n">2,958</td><td class="n">1.8%</td></tr>
+            <tr><td>Reno (ინვოისით)</td><td class="n">35</td><td class="n">902</td><td class="n">0.6%</td></tr>
+            <tr><td>გადაუხდელი (არ აკრეფილა)</td><td class="n">11</td><td class="n">532</td><td class="n">0.3%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3>რეცხვები საათების მიხედვით</h3>
+        <div class="barrow"><span>10:00</span><div class="bar"><i style="width:35%"></i></div><span class="n">175</span></div>
+        <div class="barrow"><span>11:00</span><div class="bar"><i style="width:64%"></i></div><span class="n">317</span></div>
+        <div class="barrow"><span>12:00</span><div class="bar"><i style="width:76%"></i></div><span class="n">379</span></div>
+        <div class="barrow"><span>13:00</span><div class="bar"><i style="width:82%"></i></div><span class="n">406</span></div>
+        <div class="barrow"><span>14:00</span><div class="bar"><i style="width:100%"></i></div><span class="n">498</span></div>
+        <div class="barrow"><span>15:00</span><div class="bar"><i style="width:92%"></i></div><span class="n">459</span></div>
+        <div class="barrow"><span>16:00</span><div class="bar"><i style="width:85%"></i></div><span class="n">425</span></div>
+        <div class="barrow"><span>17:00</span><div class="bar"><i style="width:81%"></i></div><span class="n">405</span></div>
+        <div class="barrow"><span>18:00</span><div class="bar"><i style="width:79%"></i></div><span class="n">395</span></div>
+        <div class="barrow"><span>19:00</span><div class="bar"><i style="width:49%"></i></div><span class="n">245</span></div>
+        <div class="barrow"><span>20:00</span><div class="bar"><i style="width:7%"></i></div><span class="n">35</span></div>
+        <p class="small muted">პიკის საათი ≈ 4.7 მანქანა 4 ბოქსზე: ყველაზე დატვირთული საათიც კი დაახლოებით ნახევარ სიმძლავრეზე მუშაობს. პოსტერზე წერია 10:00–21:00; რეალურად სამრეცხაო 10:45–19:30 მუშაობს.</p>
+
+        <h3>დღიური შემოსავალი კვირის დღეების მიხედვით</h3>
+        <div class="barrow"><span>შაბათი</span><div class="bar"><i style="width:100%"></i></div><span class="n">1,860 ₾</span></div>
+        <div class="barrow"><span>კვირა</span><div class="bar"><i style="width:95%"></i></div><span class="n">1,770 ₾</span></div>
+        <div class="barrow"><span>ხუთშაბათი</span><div class="bar"><i style="width:88%"></i></div><span class="n">1,643 ₾</span></div>
+        <div class="barrow"><span>ორშაბათი</span><div class="bar"><i style="width:80%"></i></div><span class="n">1,492 ₾</span></div>
+        <div class="barrow"><span>პარასკევი</span><div class="bar"><i style="width:74%"></i></div><span class="n">1,384 ₾</span></div>
+        <div class="barrow"><span>ოთხშაბათი</span><div class="bar"><i style="width:66%"></i></div><span class="n">1,234 ₾</span></div>
+        <div class="barrow"><span>სამშაბათი</span><div class="bar"><i style="width:65%"></i></div><span class="n">1,203 ₾</span></div>
+
+        <h3>მომხმარებლები</h3>
+        <ul>
+          <li>2,741 უნიკალური ნომერი; <b>1,634 (60%) ერთხელ მოვიდა</b>.</li>
+          <li>559 მოვიდა 2+-ჯერ, 199 — 3+-ჯერ, 51 — 5+-ჯერ. განმეორებითი ნომრები = რეცხვების 41%, შემოსავლის 40%.</li>
+          <li>ტოპ მომხმარებელი JE-025-EP: 14 ვიზიტი, 740 ₾. ნომერი ვიზიტების 100%-ზე ფიქსირდება — ეს არის ლოიალობის გასაღები.</li>
+          <li>ტელეფონის ნომერი 3,744-დან 39 რეცხვაზეა ჩაწერილი (1%).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>ESG ავტოსამრეცხაო · გაუმჯობესების გეგმა</span><span>3 · რა იყიდება</span></div>
+</div>
+
+<!-- ═══════════ 4. დანაკარგები და კონტროლი ═══════════ -->
+<div class="page">
+  <div class="inner">
+    <div class="kicker">4 · დანაკარგები, კონტროლი და გუნდი</div>
+    <h2>ფული, რომელიც იკარგება, არ არსებობს ან არ მოწმდება</h2>
+
+    <div class="cols">
+      <div class="box red" style="margin:0">
+        <h3>დანაკარგები — ≈ 1,500 ₾ / თვე</h3>
+        <ul>
+          <li><b>უფასო რეცხვები შემოსავლად ჩაწერილი.</b> 79 „ტალონი“, 2,958 ₾ (≈ 850 ₾/თვე) — ფული არ შემოსულა, ერთი და იგივე სახელები მეორდება (ES-001-GI ×14, MISHA ×7, VACHE ×6, WW-948-UW ×8). მრეცხავებს მათზე ≈ 1,000 ₾ გადაუხადეს და ბონუსის ზღვარშიც ითვლება.</li>
+          <li><b>გადაუხდელი ტაბები დახურულია „მოლოდინში“:</b> 11 რეცხვა, 532 ₾ არასდროს აკრეფილა.</li>
+          <li><b>ფასის შეცდომები ფულს ამოძრავებს:</b> ერთი 50 ₾-იანი რეცხვა ჩაწერილია <b>501 ₾-ად</b> (შემოსავალი 451 ₾-ით გაზრდილია, იმ ბოქსის მრეცხავს ≈ 160 ₾ ზედმეტი ერგო); ცხრა რეცხვა 25–50-ის ნაცვლად 2–5 ₾-ად არის ჩაწერილი.</li>
+        </ul>
+      </div>
+      <div class="box amber" style="margin:0">
+        <h3>მონაცემთა დისციპლინა, რომელიც ხელფასების სისტემას არღვევს</h3>
+        <ul>
+          <li><b>13 დღეს ყველა მანქანა Box 1-ზეა ჩაწერილი</b> — მათ შორის 58-, 48- და 46-მანქანიან დღეებში: 502 მანქანა, 24,000 ₾ (შემოსავლის 15%) ერთი ბოქსის მრეცხავებს მიეწერა.</li>
+          <li>≈ 8 დღეს მთელი დილა ერთბაშად, შუადღეს ჩაიწერა (25 მანქანა 17 წუთში 23 ივლისს); ამ საათებში ლაივ-ეკრანი ცარიელი იყო.</li>
+          <li>ბონუსი „ზღვარია“ (1,590 ₾ = არაფერი, 1,600 ₾ = 50 ₾) ჯამზე, რომელიც უფასო, Reno-ს და გადაუხდელ რეცხვებსაც შეიცავს; VIP-ის 10% გადაუხდელ VIP-ებზეც ირიცხება.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="box blue" style="margin-top:4mm">
+      <h3>ქეშის კონტროლი</h3>
+      <p style="margin:0">შემოსავლის 71% ქეშია. ცვლის დახურვისას არაფერი ადარებს ტერმინალის ჯამს ან დათვლილ ქეშს სისტემასთან. ბარათის წილი მენეჯერების მიხედვით: <b>ACHIKO 35% · DATO 29% · საბა 28% · ILIA 17%</b> — ILIA-ს ერთ 23-მანქანიან დღეს ბარათით არც ერთი გადახდა არ ფიქსირდება. შესაძლოა უბრალოდ ჩვევაა; მთავარია, რომ დღეს ეს ვერ მოწმდება. ერთწუთიანი შედარება დახურვისას (ტერმინალი + დათვლილი ქეში) ამ ხარვეზს ხურავს.</p>
+    </div>
+
+    <h3>მენეჯერების შედარება (ივნ–სექ 2026)</h3>
+    <table>
+      <thead><tr><th>მენეჯერი</th><th class="n">ცვლა</th><th class="n">მანქანა / ცვლა</th><th class="n">₾ / ცვლა</th><th class="n">საშ. ჩეკი</th><th class="n">VIP წილი</th><th class="n">ბარათი</th><th class="n">ტელეფონი ჩაწერილი</th><th class="n">ტარიფზე ქვევით</th></tr></thead>
+      <tbody>
+        <tr><td>DATO</td><td class="n">40</td><td class="n">31.5</td><td class="n">1,401</td><td class="n">44.5</td><td class="n">6.1%</td><td class="n">29%</td><td class="n">14</td><td class="n">21</td></tr>
+        <tr><td>ILIA</td><td class="n">31</td><td class="n">36.1</td><td class="n">1,577</td><td class="n">43.7</td><td class="n">6.8%</td><td class="n">17%</td><td class="n">0</td><td class="n">23</td></tr>
+        <tr><td>ACHIKO</td><td class="n">20</td><td class="n">36.6</td><td class="n">1,517</td><td class="n">41.4</td><td class="n"><b>3.3%</b></td><td class="n">35%</td><td class="n">4</td><td class="n">15</td></tr>
+        <tr><td>საბა <span class="muted">(ივლისის შუამდე)</span></td><td class="n">15</td><td class="n">37.7</td><td class="n">1,606</td><td class="n">42.6</td><td class="n">5.1%</td><td class="n">28%</td><td class="n">21</td><td class="n">7</td></tr>
+      </tbody>
+    </table>
+    <div class="cols">
+      <ul class="small" style="margin-bottom:0">
+        <li>DATO ყველაზე მეტ ცვლას მუშაობს, მაგრამ ცვლაზე 150–200 ₾-ით ნაკლები შემოაქვს სხვებთან შედარებით მსგავსი დღეების მიქსით, და გვიანი პირველი მანქანის დღეების უმეტესობა მისია.</li>
+        <li>ACHIKO VIP-ს გუნდის ნახევარი სიხშირით ყიდის; ILIA-ს დონეზე მისი 20 ცვლა ≈ 2,500 ₾-ს მოიტანდა.</li>
+      </ul>
+      <ul class="small" style="margin-bottom:0">
+        <li>ტარიფზე ქვევით გაყიდვები თანაბრადაა გადანაწილებული — ფასის დისციპლინა ერთი ადამიანის პრობლემა არ არის.</li>
+        <li>ეს საუბრის თემებია, არა დასკვნები — ERP ამას ყოველთვე ზომავს.</li>
+      </ul>
+    </div>
+
+    <h3>ხარჯები სისტემის გარეთ</h3>
+    <p class="small" style="margin:0">ქირა, წყალი, ელექტროენერგია, ქიმია და ბარათის საკომისიო არსად არ ფიქსირდება, ამიტომ „ნარჩენი ხელფასების შემდეგ“ (≈ 22,000 ₾/თვე) მოგება არ არის. მათი თვეში ერთხელ შეყვანა მთავარ ცხრილში რეალურ თვიურ მარჟას აჩვენებს — და იმასაც, აღწევს თუ არა ზრდა საბოლოო ხაზამდე.</p>
+  </div>
+  <div class="foot"><span>ESG ავტოსამრეცხაო · გაუმჯობესების გეგმა</span><span>4 · დანაკარგები და კონტროლი</span></div>
+</div>
+
+<!-- ═══════════ 5. ბერკეტები ა ═══════════ -->
+<div class="page">
+  <div class="inner">
+    <div class="kicker">5 · გეგმა — ექვსი ბერკეტი</div>
+    <h2>მეტი გაყიდვა თითო მანქანაზე და მანქანების დაბრუნება</h2>
+
+    <div class="lever">
+      <div class="hd"><h3><span class="num">1</span>დამატებითი სერვისები: VIP-ის შემადგენლები ცალ-ცალკე</h3><span class="est">+2,500–4,000 ₾ / თვე</span></div>
+      <p>სტანდარტში უკვე შედის მტვერსასრუტი და გაპრიალება; ის, რაც VIP-ს „VIP“-ად აქცევს (ცვილი, საბურავების სილიკონი, არომატიზატორი), მხოლოდ 100–170 ₾-იან პაკეტში იყიდება. შესთავაზეთ ნებისმიერ რეცხვას დამატებით: ცვილი 15/20 ₾, საბურავების სილიკონი 5, არომატიზატორი 5, ტყავის მოვლა 20, პლასტმასის დამუშავება 20 — პლუს არსებული ქვევიდან რეცხვა 15 და ბეწვისგან გაწმენდა 20. მასალის ღირებულება თითოზე 0.5–2 ₾-ია.</p>
+      <ul>
+        <li>წესი მენეჯერებისთვის: <b>ერთი დამატება შესთავაზეთ ყველა მანქანას, ყოველთვის</b> („ცვილს დავამატებთ? +20 ლარი, სამ თვეს იცავს“).</li>
+        <li>მრეცხავები დამატებებზეც იმავე 35%-ს იღებენ, რომ თვითონაც სთავაზონ; მარჟა მაინც ≈ 60% რჩება.</li>
+        <li>15%-იანი მიბმა ≈ 5 მანქანა/დღე × 17 ₾ ≈ 2,500 ₾/თვე; კარგი დახლი 25%+-ს აღწევს.</li>
+      </ul>
+    </div>
+
+    <div class="lever">
+      <div class="hd"><h3><span class="num">2</span>„სტანდარტი+“ და სწორი VIP კიბე</h3><span class="est">+2,000 ₾ / თვე (≈ 1,000 მარჟა)</span></div>
+      <p>დაასახელეთ ერთი პაკეტი, რომ კიბე 40 → 55 → 120 გახდეს: <b>სტანდარტი+ = სტანდარტი + ცვილი + საბურავების სილიკონი</b> — 45 / 55 / 65 / 75 ₾ (სედანი / ჯიპი / XL / მინივენი). <b>XL VIP ჩასვით მენიუში 150 / 170-ად</b> — მომხმარებლები უკვე იხდიან, უბრალოდ ფიქსირებული ფასი არ აქვს. დაამატეთ მინივენი მანქანის ტიპად.</p>
+      <ul>
+        <li>კიბე დახლთან აჩვენეთ, რომ 120 ₾-ს ორიენტირი ჰქონდეს და 3-ჯერ ძვირად არ გამოიყურებოდეს.</li>
+        <li>VIP-ის წილი მენეჯერების მიხედვით ლაივ-ეკრანზე გამოიტანეთ; მიზანი გუნდისთვის 9% (5.6%-დან). VIP-ის 10% ბონუსი მხოლოდ გადახდილ VIP-ებზე.</li>
+      </ul>
+    </div>
+
+    <div class="lever">
+      <div class="hd"><h3><span class="num">3</span>ლოიალობა ნომრით — არც აპლიკაცია, არც ტელეფონი არ სჭირდება</h3><span class="est">+3,000 ₾ / თვე</span></div>
+      <p>ERP ყველა ნომერს უკვე ცნობს. <b>ყოველი მე-6 რეცხვა უფასოდ</b>: მენეჯერი ნომრის აკრეფისას ხედავს „5/6“-ს და მომხმარებელს ეუბნება. ეს 16.7%-იანი ფასდაკლებაა, რომელიც მხოლოდ ექვსჯერ მოსულ ადამიანებამდე აღწევს — თავს იმით ინაზღაურებს, რომ მე-2, მე-3 და მე-4 ვიზიტს აჩქარებს.</p>
+      <ul>
+        <li>ტელეფონი მე-3 ვიზიტზე ჰკითხეთ („შეგატყობინებთ, როცა უფასო რეცხვა მოახლოვდება“); SMS შეხსენება ყოველ 3 კვირაში (≈ 0.05 ₾ თითო).</li>
+        <li><b>თვიური აბონემენტი მოლის თანამშრომლებისთვის</b>: 4 სტანდარტული რეცხვა 100 / 130 / 160 ₾-ად, წინასწარ. 50 აბონემენტი ≈ 5,000–6,500 ₾ წინასწარ, დაახლოებით ნახევარი — დამატებითი შემოსავალი.</li>
+        <li>თუ განმეორებითი რეცხვების წილი 41%-დან 50%-მდე გაიზრდება, მარტო ეს ≈ 3,000 ₾/თვეა.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>ESG ავტოსამრეცხაო · გაუმჯობესების გეგმა</span><span>5 · ბერკეტები 1–3</span></div>
+</div>
+
+<!-- ═══════════ 6. ბერკეტები ბ ═══════════ -->
+<div class="page">
+  <div class="inner">
+    <div class="kicker">5 · გეგმა — ექვსი ბერკეტი (გაგრძელება)</div>
+    <h2>ცარიელი საათების შევსება და ნაშოვნი ფულის შენარჩუნება</h2>
+
+    <div class="lever">
+      <div class="hd"><h3><span class="num">4</span>ქიმწმენდის გაყიდვა ცარიელ დილის საათებში</h3><span class="est">+2,000–2,800 ₾ / თვე</span></div>
+      <p>300 ₾+-იანი პროდუქტი, რომელიც თვეში ≈ 0-ჯერ იყიდება, და ბოქსები, რომლებიც 10:00-დან 12:30-მდე ცარიელია. დღეში ერთი ქიმწმენდის ადგილი, მხოლოდ დილით, ჯავშანი არსებული QR აპლიკაციით 50 ₾ დეპოზიტით. „მანამდე/მერე“ ფოტოები სოციალურ ქსელებში, ალბომი დახლთან, მენეჯერს 20 ₾ თითო გაყიდვაზე. თვეში 6–8 ქიმწმენდა იმ სიმძლავრეს იყენებს, რომელიც დღეს არაფერს გამოიმუშავებს.</p>
+    </div>
+
+    <div class="lever">
+      <div class="hd"><h3><span class="num">5</span>სამშაბათ/ოთხშაბათისა და დილების შევსება — პიკის ფასების დაკლების გარეშე</h3><span class="est">+3,000–4,400 ₾ / თვე</span></div>
+      <p>დატვირთვა პიკზეც ≈ 50%-ია, ამიტომ პიკზე ფასდაკლება საჭირო არ არის; არაპიკური სტიმულები კი თითქმის უფასო ფულია.</p>
+      <ul>
+        <li><b>დილის საჩუქარი</b>, სამუშაო დღეებში 12:30-მდე: ცვილი უფასოდ (მასალა 1–2 ₾-ია და მომხმარებელს ცვილის დაფასებას აჩვევს).</li>
+        <li><b>ლოიალობის ბეჭდები ორმაგად ითვლება</b> სამშაბათს და ოთხშაბათს.</li>
+        <li><b>კორპორატიული ხელშეკრულებები Reno-ს მოდელით</b>, მხოლოდ არაპიკურ საათებში: მოლის მოიჯარეების მანქანები, Bolt/ტაქსის მძღოლები, კურიერის ფურგონები, ახლომდებარე ავტოსალონები (გაყიდვისწინა რეცხვა), გაქირავების კომპანიები — 15–20% ფასდაკლება თვიური ინვოისით, ორშაბათ–ოთხშაბათს ან 13:00-მდე. სამი კომპანია × 40 რეცხვა ≈ 3,000 ₾/თვე.</li>
+        <li><b>პარტნიორობა მოლთან</b>: „დატოვე მანქანა, იშოპინგე, წაიყვანე“ — 10%-იანი კოდი მოლის ჩეკზე, აბრები პარკინგის შესასვლელთან, ჩართვა მოიჯარეების აქციებში.</li>
+        <li>ან საღამო რეალურად იმუშავეთ, ან პოსტერი შეცვალეთ: 20:00–21:00-ზე 107 დღეში მხოლოდ 35 რეცხვაა.</li>
+      </ul>
+    </div>
+
+    <div class="lever">
+      <div class="hd"><h3><span class="num">6</span>უკვე ნაშოვნი ფულის შენარჩუნება</h3><span class="est">+1,500 ₾ / თვე + კონტროლი</span></div>
+      <ul>
+        <li>ცალკე <b>„უფასო“</b> კატეგორია (თანამშრომლებისა და მფლობელის მანქანები), რომელიც არც შემოსავალში და არც ბონუსის ზღვარში არ ითვლება; მრეცხავების ანაზღაურება ასეთ რეცხვებზე — გააზრებული გადაწყვეტილება.</li>
+        <li><b>ცვლა არ იხურება გადაუხდელი ტაბებით</b>, თუ სახელი და ტელეფონი არ არის ჩაწერილი.</li>
+        <li><b>ფასის შემოწმება</b> ჩაწერისას (გაფრთხილება, თუ ჩვეულებრივის 50–200%-ს გარეთაა), <b>ბოქსის სავალდებულო არჩევა</b> და <b>ტერმინალის/ქეშის შედარება</b> დახურვისას, სხვაობა არქივში ინახება.</li>
+        <li><b>ბონუსი მხოლოდ გადახდილ შემოსავალზე</b>; 1,600 ₾-ის ზევით „ზღვრის“ ნაცვლად პროცენტი განიხილეთ.</li>
+        <li>ფიქსირებული ხარჯები ყოველთვიურად შეიყვანეთ, რომ მთავარ ცხრილში ნარჩენის ხაზი რეალური იყოს.</li>
+      </ul>
+    </div>
+
+    <div class="box green">
+      <h3>რა არ უნდა გააკეთოთ</h3>
+      <p>სტანდარტის ფასები არ დააკლოთ — საბაზროა და მომხმარებლები 35/55/60-ს ტარიფზე ზევითაც უპრობლემოდ იხდიან. მეხუთე ბოქსი არ დაამატოთ — არსებული ოთხი პიკზეც ნახევრად ცარიელია. მომხმარებლის აპლიკაცია არ გაუშვათ — ნომერი უკვე ასრულებს ამ საქმეს.</p>
+    </div>
+  </div>
+  <div class="foot"><span>ESG ავტოსამრეცხაო · გაუმჯობესების გეგმა</span><span>6 · ბერკეტები 4–6</span></div>
+</div>
+
+<!-- ═══════════ 7. დანერგვა ═══════════ -->
+<div class="page">
+  <div class="inner">
+    <div class="kicker">6 · დანერგვა</div>
+    <h2>90 დღე, თანმიმდევრობით</h2>
+
+    <table>
+      <thead><tr><th style="width:24mm">როდის</th><th>რა</th><th class="n" style="width:36mm">მოგება / თვე</th></tr></thead>
+      <tbody>
+        <tr><td><b>1-ლი კვირა</b></td><td>ახალი მენიუს დაბეჭდვა <span class="pill g">შესრულებულია</span> · მინივენი, სტანდარტი+, დამატებები და XL VIP ERP-ში · წესი „ერთი დამატება ყველა მანქანას“ · „უფასო“ კატეგორია და ცვლის დახურვის დამცავი წესები აპლიკაციაში</td><td class="n">+1,500–2,000 ₾<br><span class="muted">+ დანაკარგების გასწორება ≈ 800 ₾</span></td></tr>
+        <tr><td><b>2–4 კვირა</b></td><td>ლოიალობა ნომრით ERP-ში · დილის უფასო ცვილი · VIP-ის წილი მენეჯერების მიხედვით ლაივ-ეკრანზე · ქიმწმენდის ჯავშანი QR აპლიკაციაში · ფოტოების დაწყება</td><td class="n">+2,500 ₾</td></tr>
+        <tr><td><b>მე-2 თვე</b></td><td>თვიური აბონემენტი მოლის თანამშრომლებისთვის · 5 კომპანიასთან მოლაპარაკება (მიზანი: 3 ხელშეკრულება) · პარტნიორობა მოლთან · SMS შეხსენებები შეგროვებულ ნომრებზე</td><td class="n">+4,000–6,000 ₾</td></tr>
+        <tr><td><b>მე-3 თვე</b></td><td>დამატებების მიბმისა და VIP-ის წილის განხილვა მენეჯერების მიხედვით · ზამთრისწინა პაკეტი „ქვევიდან რეცხვა + ცვილი“ ოქტომბერ–ნოემბრისთვის (შარშანდელი ოქტომბერი ყველაზე სუსტი თვე იყო) · ბონუსის გადაკეთება გადახდილ შემოსავალზე</td><td class="n">+1,500 ₾</td></tr>
+        <tr class="total"><td></td><td>რეალისტური ტემპი მე-3 თვის ბოლოს, დღევანდელი ≈ 45,000 ₾-იანი ბაზიდან</td><td class="n">+12,000–15,000 ₾ (+25–33%)</td></tr>
+      </tbody>
+    </table>
+
+    <div class="cols">
+      <div>
+        <h3>ყოველთვე გასაზომი</h3>
+        <ul>
+          <li>შემოსავალი დღეში და მანქანა დღეში, შარშანდელ იმავე თვესთან შედარებით</li>
+          <li>საშუალო ჩეკი — დამატებებისა და VIP-ის ეფექტი აქ ჩანს პირველად</li>
+          <li>დამატებების მიბმა და VIP-ის წილი, მენეჯერების მიხედვით</li>
+          <li>განმეორებითი წილი: რეცხვების % ადრე ნანახი ნომრებიდან</li>
+          <li>რეცხვები 12:30-მდე და სამშაბათ/ოთხშაბათს</li>
+          <li>უფასო ₾, გადაუხდელი ₾, ქეშის სხვაობა დახურვისას</li>
+          <li>ხელფასების % შემოსავალში (მიზანი: ისევ 44%-ის ქვევით)</li>
+        </ul>
+      </div>
+      <div>
+        <h3>თქვენგან საჭირო გადაწყვეტილებები</h3>
+        <ul class="check">
+          <li>დამატებების და სტანდარტი+-ის ფასების დადასტურება (მენიუ დაბეჭდილია 45/55/65/75-ით)</li>
+          <li>მრეცხავები დამატებებზე 35%-ს იღებენ — კი / არა</li>
+          <li>ლოიალობის წესი: ყოველი მე-6 უფასოდ, თუ 20% ფასდაკლება მე-6-ზე</li>
+          <li>საათები: 10:00–21:00 დარჩეს და საღამო დაკომპლექტდეს, თუ 10:00–20:00 დაიბეჭდოს</li>
+          <li>უფასო რეცხვების პოლიტიკა: ვინ ირეცხავს უფასოდ და უხდიან თუ არა მრეცხავებს ამ მანქანებზე</li>
+          <li>რომელ 5 კომპანიას მივმართოთ პირველად</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>აპლიკაციაში შესატანი ცვლილებები (ერთი გამოშვება)</h3>
+    <p class="small">მინივენი მანქანის ტიპად · სტანდარტი+ რეცხვის ტიპად · დამატებების ღილაკები თითო რეცხვის სტრიქონზე, რომლებიც ფასს ემატება და არქივში ჩანს · XL VIP ფასის მინიშნებებში · ლოიალობის მრიცხველი ნომრით („5/6“ ნომრის აკრეფისას; მე-6 უფასოდ) · თვიური აბონემენტი გადახდის ტიპად · „უფასო“ კატეგორია შემოსავლისა და ბონუსის გარეშე · ფასის შემოწმების გაფრთხილება · ბოქსის სავალდებულო არჩევა · დახურვის ბლოკი გადაუხდელი ტაბებით, თუ სახელი + ტელეფონი არ არის · ტერმინალის/ქეშის შედარება დახურვისას · VIP-ის წილი და დამატებების მიბმა მენეჯერების მიხედვით ლაივ-ეკრანზე · Telegram შეტყობინება, თუ 11:15-მდე არაფერია ჩაწერილი.</p>
+  </div>
+  <div class="foot"><span>ESG ავტოსამრეცხაო · გაუმჯობესების გეგმა</span><span>7 · დანერგვა</span></div>
+</div>
+
+</body>
+</html>
