@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ESG Car Wash — Improvement Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@300;400;600;700;900&family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#313647;--ink:#1a1f2b;--ink2:#4b5364;--ink3:#7c8494;--line:#e3e6ec;--blue:#3fa9e0;--blue2:#e7f4fc;--green:#0f9d58;--green2:#e6f6ee;--amber:#d98a00;--amber2:#fff4dc;--red:#d43f3a;--red2:#fdecec}
+@page{size:A4;margin:0}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#fff;color:var(--ink);font-family:'Inter','Noto Sans Georgian',sans-serif;font-size:10pt;line-height:1.45;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{width:210mm;height:297mm;overflow:hidden;position:relative;page-break-after:always;background:#fff}
+.page:last-child{page-break-after:auto}
+.inner{position:absolute;top:16mm;left:16mm;right:16mm;bottom:16mm;overflow:hidden}
+.foot{position:absolute;left:16mm;right:16mm;bottom:8mm;display:flex;justify-content:space-between;font-size:7.5pt;color:var(--ink3);border-top:1px solid var(--line);padding-top:2mm}
+.ka{font-family:'Noto Sans Georgian',sans-serif}
+h1{font-size:22pt;font-weight:800;line-height:1.15;letter-spacing:-.01em}
+h2{font-size:15pt;font-weight:800;line-height:1.2;margin:0 0 3mm;letter-spacing:-.01em}
+h3{font-size:10.5pt;font-weight:700;margin:4mm 0 1.5mm}
+p{margin:0 0 2.5mm}
+.lead{font-size:11pt;color:var(--ink2)}
+.kicker{font-size:8pt;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);margin-bottom:1.5mm}
+ul{margin:0 0 2.5mm 4.5mm}
+li{margin-bottom:1.2mm}
+b{font-weight:700}
+.muted{color:var(--ink3)}
+.small{font-size:8.5pt}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;margin:1.5mm 0 3mm}
+th{font-size:8pt;font-weight:700;color:var(--ink2);text-align:left;padding:1.6mm 2mm;background:#f3f5f8;border-bottom:1.5px solid var(--line);white-space:nowrap}
+td{padding:1.6mm 2mm;border-bottom:1px solid var(--line);vertical-align:top;font-size:9pt}
+td.n,th.n{text-align:right;white-space:nowrap}
+tr.total td{font-weight:700;background:#f8f9fb}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin:3mm 0 4mm}
+.kpi{border:1px solid var(--line);border-radius:2mm;padding:3mm 3.5mm}
+.kpi .v{font-size:17pt;font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.kpi .l{font-size:7.5pt;color:var(--ink3);margin-top:1mm;text-transform:uppercase;letter-spacing:.06em}
+.kpi .d{font-size:8pt;margin-top:1mm;font-weight:600}
+.up{color:var(--green)}.down{color:var(--red)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:6mm}
+.box{border-radius:2mm;padding:3.5mm 4mm;margin:2mm 0 3mm}
+.box.blue{background:var(--blue2)}.box.green{background:var(--green2)}.box.amber{background:var(--amber2)}.box.red{background:var(--red2)}
+.box h3{margin-top:0}
+.pill{display:inline-block;font-size:7pt;font-weight:700;padding:.4mm 1.8mm;border-radius:1mm;letter-spacing:.06em;text-transform:uppercase;vertical-align:middle}
+.pill.g{background:var(--green2);color:var(--green)}.pill.a{background:var(--amber2);color:var(--amber)}.pill.r{background:var(--red2);color:var(--red)}.pill.b{background:var(--blue2);color:#1f7fb3}
+.bar{height:2.2mm;background:#eef1f5;border-radius:1mm;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--blue)}
+.barrow{display:grid;grid-template-columns:22mm 1fr 18mm;align-items:center;gap:2.5mm;font-size:8.5pt;margin-bottom:1.3mm}
+.barrow .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink2)}
+.cover{background:var(--navy);color:#fff}
+.cover .inner{top:0;left:0;right:0;bottom:0;padding:22mm 20mm}
+.cover .logo{width:30mm;display:block}
+.cover h1{font-size:34pt;margin-top:60mm;color:#fff}
+.cover .sub{font-size:14pt;font-weight:300;color:rgba(255,255,255,.8);margin-top:4mm}
+.cover .meta{position:absolute;left:20mm;bottom:22mm;font-size:9pt;color:rgba(255,255,255,.7);line-height:1.7}
+.cover .meta b{color:#fff;font-weight:600}
+.num{display:inline-flex;align-items:center;justify-content:center;width:7mm;height:7mm;border-radius:50%;background:var(--navy);color:#fff;font-weight:800;font-size:10pt;margin-right:2.5mm;vertical-align:middle}
+.lever{border:1px solid var(--line);border-radius:2mm;padding:3.5mm 4mm 3mm;margin-bottom:3mm;page-break-inside:avoid}
+.lever .hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5mm}
+.lever .hd h3{margin:0;font-size:11pt}
+.lever .est{font-size:9pt;font-weight:800;color:var(--green);white-space:nowrap}
+.toc li{margin-bottom:2.2mm;font-size:10.5pt}
+.toc span{color:var(--ink3);font-weight:400}
+.check{list-style:none;margin-left:0}
+.check li{padding-left:6mm;position:relative}
+.check li:before{content:'☐';position:absolute;left:0;top:-.2mm;color:var(--ink3)}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ COVER ═══════════ -->
+<div class="page cover">
+  <div class="inner">
+    <img class="logo" src="logo-dark.png" alt="ESG">
+    <h1>Car Wash<br>Improvement Plan</h1>
+    <div class="sub">Audit findings and a 90-day plan to grow revenue<br>with the same boxes and the same team</div>
+    <div class="meta">
+      <b>ESG Car Wash · Tbilisi Mall</b><br>
+      Prepared 21 September 2026<br>
+      Data: 3,744 washes logged by the ERP (2 Jun – 20 Sep 2026, 107 shifts)<br>
+      plus 365 day-records from the manual sheets (May 2025 – Apr 2026)
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ 1. SUMMARY ═══════════ -->
+<div class="page">
+  <div class="inner">
+    <div class="kicker">1 · Summary</div>
+    <h2>The business is growing. The upside is in mix and repeat visits, not capacity.</h2>
+    <p class="lead">Every 2026 month is 13–31% above the same month of 2025 and September is the best month per day you have ever had. At the same time the four boxes are only about half busy even at the 14:00–17:00 peak, 88% of customers buy the cheapest product, and 60% of cars never come back. Fixing those three things is worth roughly <b>+12,000–15,000 ₾ a month</b> within a quarter, with no new equipment.</p>
+
+    <div class="kpis">
+      <div class="kpi"><div class="v">1,645 ₾</div><div class="l">Revenue per day · Sep 2026</div><div class="d up">+51% vs Sep 2025</div></div>
+      <div class="kpi"><div class="v">36.5</div><div class="l">Cars per day · Sep 2026</div><div class="d up">+30% vs Sep 2025</div></div>
+      <div class="kpi"><div class="v">45.1 ₾</div><div class="l">Average ticket · Sep 2026</div><div class="d up">+16% vs Sep 2025</div></div>
+      <div class="kpi"><div class="v">46%</div><div class="l">Labour share of revenue</div><div class="d down">was 43% in 2025</div></div>
+    </div>
+
+    <div class="cols">
+      <div>
+        <h3>What is working</h3>
+        <ul>
+          <li>Volume <b>and</b> ticket are both up — growth is real, not just price.</li>
+          <li>Managers price sensibly: 120 over-list charges (+1,697 ₾) vs 66 under-list (−782 ₾).</li>
+          <li>Weekends are strong: Saturday 1,860 ₾/day, Sunday 1,770 ₾/day.</li>
+          <li>A loyal core exists: 559 plates came back 2+ times, 51 came 5+ times.</li>
+          <li>The Reno fleet contract works — a proven B2B model to copy.</li>
+          <li>Labour is variable (35–40% per wash), so slow days do not sink the month.</li>
+          <li>Large headroom: 4.7 cars per peak hour across 4 boxes.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>What is holding it back</h3>
+        <ul>
+          <li><b>No middle product.</b> Standard 30–50 ₾, then VIP at 100–170 ₾ (3× jump). Nothing in between sells.</li>
+          <li><b>No retention.</b> 2,741 plates, 60% one-time; phone captured on 1% of visits.</li>
+          <li><b>Empty mornings and weak Tue/Wed.</b> 13% of washes before 12:00; Tue/Wed ≈ 1,220 ₾/day vs 1,650–1,860 Thu–Sun.</li>
+          <li><b>Leaks ≈ 1,500 ₾/month</b>: comp washes booked as revenue, unpaid tabs, price typos (one 501 ₾ entry).</li>
+          <li><b>Data discipline:</b> 13 days logged entirely to Box 1; 4 shifts never closed; May 2026 has no records.</li>
+          <li><b>Cash control:</b> 71% cash, no reconciliation at shift close; card share varies 17–35% by manager.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="box blue">
+      <h3>Three priorities</h3>
+      <p><b>1. Sell more per car</b> — add-ons and a “სტანდარტი+” tier fill the 40→120 ₾ gap. <b>2. Bring cars back</b> — plate-based loyalty and a mall-staff pass. <b>3. Fill dead hours</b> — morning wax, Tue/Wed double stamps, fleet contracts. Underneath all three: fix the leaks and the shift-close controls.</p>
+    </div>
+  </div>
+  <div class="foot"><span>ESG Car Wash · Improvement Plan</span><span>1 · Summary</span></div>
+</div>
+
+<!-- ═══════════ 2. NUMBERS ═══════════ -->
+<div class="page">
+  <div class="inner">
+    <div class="kicker">2 · Where the business stands</div>
+    <h2>16 months of results</h2>
+
+    <table>
+      <thead><tr><th>Month</th><th class="n">Days</th><th class="n">Cars</th><th class="n">Revenue ₾</th><th class="n">₾ / day</th><th class="n">Avg ticket</th><th class="n">Card %</th><th class="n">Washers ₾</th><th class="n">Manager ₾</th><th class="n">Net after labour</th></tr></thead>
+      <tbody>
+        <tr><td>May 2025</td><td class="n">21</td><td class="n">657</td><td class="n">26,319</td><td class="n">1,253</td><td class="n">40.1</td><td class="n">20%</td><td class="n">9,623</td><td class="n">2,009</td><td class="n">14,552</td></tr>
+        <tr><td>Jun 2025</td><td class="n">29</td><td class="n">870</td><td class="n">34,394</td><td class="n">1,186</td><td class="n">39.5</td><td class="n">20%</td><td class="n">12,170</td><td class="n">2,681</td><td class="n">17,988</td></tr>
+        <tr><td>Jul 2025</td><td class="n">29</td><td class="n">910</td><td class="n">35,324</td><td class="n">1,218</td><td class="n">38.8</td><td class="n">18%</td><td class="n">12,545</td><td class="n">2,967</td><td class="n">17,193</td></tr>
+        <tr><td>Aug 2025</td><td class="n">30</td><td class="n">911</td><td class="n">37,273</td><td class="n">1,242</td><td class="n">40.9</td><td class="n">12%</td><td class="n">12,805</td><td class="n">3,654</td><td class="n">18,449</td></tr>
+        <tr><td>Sep 2025</td><td class="n">29</td><td class="n">816</td><td class="n">31,650</td><td class="n">1,091</td><td class="n">38.8</td><td class="n">14%</td><td class="n">11,291</td><td class="n">3,440</td><td class="n">16,157</td></tr>
+        <tr><td>Oct 2025</td><td class="n">30</td><td class="n">796</td><td class="n">32,531</td><td class="n">1,084</td><td class="n">40.9</td><td class="n">16%</td><td class="n">11,410</td><td class="n">3,334</td><td class="n">16,055</td></tr>
+        <tr><td>Nov 2025</td><td class="n">30</td><td class="n">997</td><td class="n">38,758</td><td class="n">1,292</td><td class="n">38.9</td><td class="n">21%</td><td class="n">13,865</td><td class="n">3,786</td><td class="n">19,910</td></tr>
+        <tr><td>Dec 2025</td><td class="n">31</td><td class="n">1,167</td><td class="n">45,208</td><td class="n">1,458</td><td class="n">38.7</td><td class="n">24%</td><td class="n">16,120</td><td class="n">4,564</td><td class="n">22,674</td></tr>
+        <tr><td>Jan 2026</td><td class="n">28</td><td class="n">1,057</td><td class="n">42,204</td><td class="n">1,507</td><td class="n">39.9</td><td class="n">30%</td><td class="n">15,001</td><td class="n">3,397</td><td class="n">22,656</td></tr>
+        <tr><td>Feb 2026</td><td class="n">26</td><td class="n">819</td><td class="n">34,768</td><td class="n">1,337</td><td class="n">42.5</td><td class="n">31%</td><td class="n">12,416</td><td class="n">3,615</td><td class="n">17,192</td></tr>
+        <tr><td>Mar 2026</td><td class="n">31</td><td class="n">822</td><td class="n">34,406</td><td class="n">1,110</td><td class="n">41.9</td><td class="n">30%</td><td class="n">12,292</td><td class="n">3,963</td><td class="n">17,496</td></tr>
+        <tr><td>Apr 2026</td><td class="n">28</td><td class="n">958</td><td class="n">41,159</td><td class="n">1,470</td><td class="n">43.0</td><td class="n">27%</td><td class="n">14,731</td><td class="n">4,155</td><td class="n">20,946</td></tr>
+        <tr><td class="muted">May 2026</td><td class="n muted" colspan="9">no records exist — not in the manual sheets, not in the ERP (≈ 40,000 ₾ of business with no paper trail)</td></tr>
+        <tr><td>Jun 2026</td><td class="n">29</td><td class="n">1,059</td><td class="n">45,150</td><td class="n">1,557</td><td class="n">42.6</td><td class="n">26%</td><td class="n">16,164</td><td class="n">4,773</td><td class="n">22,848</td></tr>
+        <tr><td>Jul 2026</td><td class="n">29</td><td class="n">974</td><td class="n">42,156</td><td class="n">1,454</td><td class="n">43.3</td><td class="n">25%</td><td class="n">15,111</td><td class="n">4,287</td><td class="n">21,511</td></tr>
+        <tr><td>Aug 2026</td><td class="n">29</td><td class="n">981</td><td class="n">42,204</td><td class="n">1,455</td><td class="n">43.0</td><td class="n">27%</td><td class="n">15,089</td><td class="n">4,211</td><td class="n">21,744</td></tr>
+        <tr><td>Sep 2026 <span class="muted">(to 20th)</span></td><td class="n">20</td><td class="n">730</td><td class="n">32,895</td><td class="n">1,645</td><td class="n">45.1</td><td class="n">27%</td><td class="n">≈12,400</td><td class="n">≈2,700</td><td class="n">≈17,800</td></tr>
+      </tbody>
+    </table>
+    <p class="small muted">Manual-sheet months are summed from the day rows (their totals rows are incomplete and “Cash Left” carries hand adjustments). ERP months are from the daily archives. “Net after labour” excludes rent, utilities, chemicals and card fees, which are not recorded anywhere.</p>
+
+    <div class="cols">
+      <div>
+        <h3>Year on year</h3>
+        <ul>
+          <li>Jun: 34.4K → 45.2K (<b>+31%</b>) · Jul: 35.3K → 42.2K (<b>+19%</b>) · Aug: 37.3K → 42.2K (<b>+13%</b>)</li>
+          <li>Sep pace: 1,091 → 1,645 ₾/day (<b>+51%</b>), partly from staying open later.</li>
+          <li>Summer plateau: June was the peak; July and August did not grow on it.</li>
+          <li>Card share doubled (12–20% → 25–31%); cash is still 71% of money.</li>
+          <li>Labour rose from 43% to 46% of revenue as VIP share and bonuses grew.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>What a normal day looks like (Jun–Sep 2026)</h3>
+        <ul>
+          <li>Median 34 cars and 1,540 ₾; a weak day is 23 cars, a strong day 49.</li>
+          <li>First car at 10:45 on a median day; last car 19:34. Earliest 10:01, latest 21:25.</li>
+          <li>47 of 107 shifts crossed 1,600 ₾; 18 crossed 2,000 ₾.</li>
+          <li>Best day ever: 6 Aug (69 cars, 3,065 ₾). Worst: 7 Jul (14 cars, 535 ₾).</li>
+          <li>Last October was the weakest full month (1,084 ₾/day) — plan the autumn campaign now.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>ESG Car Wash · Improvement Plan</span><span>2 · Numbers</span></div>
+</div>
+
+<!-- ═══════════ 3. WHAT SELLS ═══════════ -->
+<div class="page">
+  <div class="inner">
+    <div class="kicker">3 · What sells, when, and to whom</div>
+    <h2>Product mix, hours, weekdays, customers</h2>
+
+    <div class="cols">
+      <div>
+        <h3>Wash types (3,744 washes)</h3>
+        <div class="barrow"><span>Standard</span><div class="bar"><i style="width:88.5%"></i></div><span class="n">88.5%</span></div>
+        <div class="barrow"><span>VIP</span><div class="bar"><i style="width:5.6%"></i></div><span class="n">5.6%</span></div>
+        <div class="barrow"><span>Exterior only</span><div class="bar"><i style="width:4.5%"></i></div><span class="n">4.5%</span></div>
+        <div class="barrow"><span>Other (სხვა)</span><div class="bar"><i style="width:0.9%"></i></div><span class="n">0.9%</span></div>
+        <div class="barrow"><span>Interior only</span><div class="bar"><i style="width:0.4%"></i></div><span class="n">0.4%</span></div>
+        <p class="small muted">Underbody wash, pet-hair cleaning and the 300 ₾ detailing service sold ≈ 0 times in 3.5 months. “ორივე” was never sold. Minivans are logged as XL (not a car type in the ERP).</p>
+
+        <h3>Car types</h3>
+        <table>
+          <thead><tr><th>Type</th><th class="n">Share</th><th class="n">Avg ₾</th><th class="n">VIP price actually paid</th></tr></thead>
+          <tbody>
+            <tr><td class="ka">სედანი</td><td class="n">36%</td><td class="n">33.6</td><td class="n">100–130 (avg 112)</td></tr>
+            <tr><td class="ka">ჯიპი</td><td class="n">41%</td><td class="n">43.8</td><td class="n">100–170 (avg 127)</td></tr>
+            <tr><td class="ka">ჯიპი XL</td><td class="n">23%</td><td class="n">58.2</td><td class="n">100–220 (avg 141) — <b>not on the menu</b></td></tr>
+          </tbody>
+        </table>
+
+        <h3>Payment</h3>
+        <table>
+          <thead><tr><th>Method</th><th class="n">Washes</th><th class="n">₾</th><th class="n">Share</th></tr></thead>
+          <tbody>
+            <tr><td>Cash</td><td class="n">2,582</td><td class="n">115,311</td><td class="n">71%</td></tr>
+            <tr><td>Card</td><td class="n">1,037</td><td class="n">42,702</td><td class="n">26%</td></tr>
+            <tr><td>Talon / comp</td><td class="n">79</td><td class="n">2,958</td><td class="n">1.8%</td></tr>
+            <tr><td>Reno (fleet, invoiced)</td><td class="n">35</td><td class="n">902</td><td class="n">0.6%</td></tr>
+            <tr><td>Unpaid (never collected)</td><td class="n">11</td><td class="n">532</td><td class="n">0.3%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3>Washes by hour</h3>
+        <div class="barrow"><span>10:00</span><div class="bar"><i style="width:35%"></i></div><span class="n">175</span></div>
+        <div class="barrow"><span>11:00</span><div class="bar"><i style="width:64%"></i></div><span class="n">317</span></div>
+        <div class="barrow"><span>12:00</span><div class="bar"><i style="width:76%"></i></div><span class="n">379</span></div>
+        <div class="barrow"><span>13:00</span><div class="bar"><i style="width:82%"></i></div><span class="n">406</span></div>
+        <div class="barrow"><span>14:00</span><div class="bar"><i style="width:100%"></i></div><span class="n">498</span></div>
+        <div class="barrow"><span>15:00</span><div class="bar"><i style="width:92%"></i></div><span class="n">459</span></div>
+        <div class="barrow"><span>16:00</span><div class="bar"><i style="width:85%"></i></div><span class="n">425</span></div>
+        <div class="barrow"><span>17:00</span><div class="bar"><i style="width:81%"></i></div><span class="n">405</span></div>
+        <div class="barrow"><span>18:00</span><div class="bar"><i style="width:79%"></i></div><span class="n">395</span></div>
+        <div class="barrow"><span>19:00</span><div class="bar"><i style="width:49%"></i></div><span class="n">245</span></div>
+        <div class="barrow"><span>20:00</span><div class="bar"><i style="width:7%"></i></div><span class="n">35</span></div>
+        <p class="small muted">Peak hour ≈ 4.7 cars across 4 boxes: even the busiest hour runs at roughly half capacity. The poster says 10:00–21:00; the wash effectively runs 10:45–19:30.</p>
+
+        <h3>Revenue per day by weekday</h3>
+        <div class="barrow"><span>Saturday</span><div class="bar"><i style="width:100%"></i></div><span class="n">1,860 ₾</span></div>
+        <div class="barrow"><span>Sunday</span><div class="bar"><i style="width:95%"></i></div><span class="n">1,770 ₾</span></div>
+        <div class="barrow"><span>Thursday</span><div class="bar"><i style="width:88%"></i></div><span class="n">1,643 ₾</span></div>
+        <div class="barrow"><span>Monday</span><div class="bar"><i style="width:80%"></i></div><span class="n">1,492 ₾</span></div>
+        <div class="barrow"><span>Friday</span><div class="bar"><i style="width:74%"></i></div><span class="n">1,384 ₾</span></div>
+        <div class="barrow"><span>Wednesday</span><div class="bar"><i style="width:66%"></i></div><span class="n">1,234 ₾</span></div>
+        <div class="barrow"><span>Tuesday</span><div class="bar"><i style="width:65%"></i></div><span class="n">1,203 ₾</span></div>
+
+        <h3>Customers</h3>
+        <ul>
+          <li>2,741 distinct plates; <b>1,634 (60%) came once</b>.</li>
+          <li>559 came 2+ times, 199 came 3+, 51 came 5+. Repeat plates = 41% of washes, 40% of revenue.</li>
+          <li>Top customer JE-025-EP: 14 visits, 740 ₾. The plate is captured on 100% of visits — that is the loyalty key.</li>
+          <li>Phone numbers captured on 39 of 3,744 washes (1%).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>ESG Car Wash · Improvement Plan</span><span>3 · What sells</span></div>
+</div>
+
+<!-- ═══════════ 4. LEAKS & CONTROLS ═══════════ -->
+<div class="page">
+  <div class="inner">
+    <div class="kicker">4 · Leaks, controls and team</div>
+    <h2>Money that is lost, phantom, or unverified</h2>
+
+    <div class="cols">
+      <div class="box red" style="margin:0">
+        <h3>Leaks — ≈ 1,500 ₾ / month</h3>
+        <ul>
+          <li><b>Comp washes booked as revenue.</b> 79 “talon” washes, 2,958 ₾ (≈ 850 ₾/month) with no cash behind them — the same names repeatedly (ES-001-GI ×14, MISHA ×7, VACHE ×6, WW-948-UW ×8, KOPE ×3 incl. two VIPs). Washers were paid ≈ 1,000 ₾ on them and they count toward manager bonus thresholds.</li>
+          <li><b>Unpaid tabs closed as pending:</b> 11 washes, 532 ₾ never collected.</li>
+          <li><b>Price typos move money:</b> one 50 ₾ wash entered as <b>501 ₾</b> (revenue overstated 451 ₾, that box's washer overpaid ≈ 160 ₾); nine washes entered as 2–5 ₾ instead of 25–50 ₾.</li>
+        </ul>
+      </div>
+      <div class="box amber" style="margin:0">
+        <h3>Data discipline that breaks the pay system</h3>
+        <ul>
+          <li>On <b>13 days every car was logged to Box 1</b> — including 58-, 48- and 46-car days: 502 cars, 24,000 ₾ (15% of revenue) attributed to one box's washers.</li>
+          <li>On ≈ 8 days the whole morning was typed in one afternoon batch (25 cars in 17 minutes on 23 Jul); the live dashboard was blank for those hours.</li>
+          <li>4 shifts were never closed, so two days' cars merged into one archive (fixed in the app this week).</li>
+          <li>Bonus is a cliff (1,590 ₾ = nothing, 1,600 ₾ = 50 ₾) on a total that includes comp, Reno and unpaid washes; the 10% VIP bonus is paid on unpaid VIPs.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="box blue" style="margin-top:4mm">
+      <h3>Cash control</h3>
+      <p style="margin:0">71% of revenue is cash. Nothing at shift close reconciles the card terminal or the counted cash against the system. Card share by manager: <b>ACHIKO 35% · DATO 29% · SABA 28% · ILIA 17%</b> — one of ILIA's 23-car days shows zero card payments. This may simply be habit; the point is that today it is unverifiable. A one-minute reconciliation step at close (terminal total + counted cash, difference stored in the archive) closes the gap.</p>
+    </div>
+
+    <h3>Manager comparison (Jun–Sep 2026)</h3>
+    <table>
+      <thead><tr><th>Manager</th><th class="n">Shifts</th><th class="n">Cars / shift</th><th class="n">₾ / shift</th><th class="n">Avg ticket</th><th class="n">VIP share</th><th class="n">Card share</th><th class="n">Phones captured</th><th class="n">Under-list charges</th></tr></thead>
+      <tbody>
+        <tr><td>DATO</td><td class="n">40</td><td class="n">31.5</td><td class="n">1,401</td><td class="n">44.5</td><td class="n">6.1%</td><td class="n">29%</td><td class="n">14</td><td class="n">21</td></tr>
+        <tr><td>ILIA</td><td class="n">31</td><td class="n">36.1</td><td class="n">1,577</td><td class="n">43.7</td><td class="n">6.8%</td><td class="n">17%</td><td class="n">0</td><td class="n">23</td></tr>
+        <tr><td>ACHIKO</td><td class="n">20</td><td class="n">36.6</td><td class="n">1,517</td><td class="n">41.4</td><td class="n"><b>3.3%</b></td><td class="n">35%</td><td class="n">4</td><td class="n">15</td></tr>
+        <tr><td><span class="ka">საბა</span> <span class="muted">(to mid-Jul)</span></td><td class="n">15</td><td class="n">37.7</td><td class="n">1,606</td><td class="n">42.6</td><td class="n">5.1%</td><td class="n">28%</td><td class="n">21</td><td class="n">7</td></tr>
+      </tbody>
+    </table>
+    <div class="cols">
+      <ul class="small" style="margin-bottom:0">
+        <li>DATO works the most shifts but brings in 150–200 ₾ less per shift than the others with a similar weekday mix, and has most of the late first-car days.</li>
+        <li>ACHIKO sells VIP at half the team rate; matching ILIA's rate would have been worth ≈ 2,500 ₾ over his 20 shifts.</li>
+      </ul>
+      <ul class="small" style="margin-bottom:0">
+        <li>Under-list charges are spread evenly — pricing discipline is not a person problem.</li>
+        <li>These are conversations, not conclusions. The ERP now measures all of this every month, so the same table can be reviewed with the team.</li>
+      </ul>
+    </div>
+
+    <h3>Costs outside the system</h3>
+    <p class="small" style="margin:0">Rent, water, electricity, chemicals and card fees are not recorded anywhere, so “net after labour” (≈ 22,000 ₾/month) is not profit. Entering them once a month in the master sheet makes the real margin per month visible — and shows whether the growth is actually reaching the bottom line.</p>
+  </div>
+  <div class="foot"><span>ESG Car Wash · Improvement Plan</span><span>4 · Leaks & controls</span></div>
+</div>
+
+<!-- ═══════════ 5. LEVERS A ═══════════ -->
+<div class="page">
+  <div class="inner">
+    <div class="kicker">5 · The plan — six levers</div>
+    <h2>Sell more per car and bring cars back</h2>
+
+    <div class="lever">
+      <div class="hd"><h3><span class="num">1</span>Add-ons: sell VIP's ingredients one at a time</h3><span class="est">+2,500–4,000 ₾ / mo</span></div>
+      <p>Standard already includes vacuum and shine; the things that make VIP “VIP” (wax, tyre silicone, fragrance) are only sold as a 100–170 ₾ bundle. Offer them on top of any wash: wax 15/20 ₾, tyre silicone 5, fragrance 5, leather care 20, plastic dressing 20 — plus the existing underbody 15 and pet-hair 20. Material cost is 0.5–2 ₾ each.</p>
+      <ul>
+        <li>Rule for managers: <b>offer one add-on to every car, every time</b> (“ცვილს დავამატებთ? +20 ლარი, სამ თვეს იცავს”).</li>
+        <li>Washers get the same 35% on add-ons so they push them too; you still keep ≈ 60% margin.</li>
+        <li>15% attach rate ≈ 5 cars/day × 17 ₾ ≈ 2,500 ₾/month; a good counter reaches 25%+.</li>
+      </ul>
+    </div>
+
+    <div class="lever">
+      <div class="hd"><h3><span class="num">2</span>“სტანდარტი+” tier and a proper VIP ladder</h3><span class="est">+2,000 ₾ / mo (≈ 1,000 margin)</span></div>
+      <p>Name one bundle so the ladder reads 40 → 55 → 120: <b>სტანდარტი+ = standard + wax + tyre silicone</b> at 45 / 55 / 65 / 75 ₾ (sedan / jeep / XL / minivan). Put <b>XL VIP on the menu at 150 / 170</b> — customers already pay it, it just has no fixed price. Add მინივენი as a car type.</p>
+      <ul>
+        <li>Show the ladder at the counter so 120 ₾ has a reference point instead of looking like 3× the price.</li>
+        <li>Track VIP share per manager on the live screen; target 9% team-wide (from 5.6%). Pay the 10% VIP bonus only on paid VIPs.</li>
+      </ul>
+    </div>
+
+    <div class="lever">
+      <div class="hd"><h3><span class="num">3</span>Plate-based loyalty — no app, no phone needed</h3><span class="est">+3,000 ₾ / mo</span></div>
+      <p>The ERP already recognises every plate. <b>Every 6th wash free</b>: the manager sees “5/6” when typing the plate and tells the customer. It is a 16.7% discount that only ever reaches people who came six times — it pays for itself by pulling forward visits 2, 3 and 4.</p>
+      <ul>
+        <li>Ask for the phone at the 3rd visit (“we'll text you when your free wash is close”); SMS reminder every 3 weeks (≈ 0.05 ₾ each).</li>
+        <li><b>Monthly pass for mall staff</b>: 4 standard washes for 100 / 130 / 160 ₾, prepaid. 50 passes ≈ 5,000–6,500 ₾ prepaid, about half of it incremental.</li>
+        <li>If repeat washes move from 41% to 50% of volume, that alone is ≈ 3,000 ₾/month.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>ESG Car Wash · Improvement Plan</span><span>5 · Levers 1–3</span></div>
+</div>
+
+<!-- ═══════════ 6. LEVERS B ═══════════ -->
+<div class="page">
+  <div class="inner">
+    <div class="kicker">5 · The plan — six levers (continued)</div>
+    <h2>Fill dead hours and keep the money you earn</h2>
+
+    <div class="lever">
+      <div class="hd"><h3><span class="num">4</span>Sell the detailing service in the dead morning hours</h3><span class="est">+2,000–2,800 ₾ / mo</span></div>
+      <p>A 300 ₾+ product that sells ≈ 0 times a month, and boxes that are empty from 10:00 to 12:30. One detailing slot per day, mornings only, bookable through the existing QR app with a 50 ₾ deposit. Before/after photos on Instagram and TikTok, a laminated album at the counter, 20 ₾ flat to the manager per detail sold. Six to eight details a month uses capacity that earns nothing today.</p>
+    </div>
+
+    <div class="lever">
+      <div class="hd"><h3><span class="num">5</span>Fill Tuesday/Wednesday and mornings — without cutting peak prices</h3><span class="est">+3,000–4,400 ₾ / mo</span></div>
+      <p>Utilisation is ≈ 50% even at peak, so discounts at peak are unnecessary; off-peak incentives are almost free money.</p>
+      <ul>
+        <li><b>Morning gift</b>, weekdays before 12:30: wax free (costs 1–2 ₾ in material and trains customers to value wax).</li>
+        <li><b>Loyalty stamps count double</b> on Tuesday and Wednesday.</li>
+        <li><b>Fleet contracts on the Reno model</b>, off-peak only: mall tenants' cars, Bolt/taxi drivers, courier vans, nearby dealerships (pre-delivery washes), rental companies — 15–20% off with a monthly invoice, valid Mon–Wed or before 13:00. Three fleets × 40 washes ≈ 3,000 ₾/month.</li>
+        <li><b>Mall partnership</b>: “drop the car, shop, pick it up” — a 10% code on mall receipts, signage at the parking entrance, inclusion in tenant promotions.</li>
+        <li>Deliver the evening or change the poster: 20:00–21:00 produced 35 washes in 107 days, yet the late September nights coincided with the best month per day.</li>
+      </ul>
+    </div>
+
+    <div class="lever">
+      <div class="hd"><h3><span class="num">6</span>Keep the money you already earn</h3><span class="est">+1,500 ₾ / mo + control</span></div>
+      <ul>
+        <li>A separate <b>comp</b> category (staff and owner cars) that does not count as revenue or toward bonus thresholds; washer pay on comps becomes a deliberate choice.</li>
+        <li><b>No shift close with unpaid tabs</b> unless a name and phone are recorded.</li>
+        <li><b>Price sanity check</b> at entry (warn outside 50–200% of the usual price), <b>mandatory box</b> selection, and a <b>card-terminal / cash-count reconciliation</b> step at close that stores the difference in the archive.</li>
+        <li><b>Bonus on paid revenue only</b>; consider a percentage above 1,600 ₾ instead of a cliff.</li>
+        <li>Enter fixed costs monthly so the net line in the master sheet is real.</li>
+      </ul>
+    </div>
+
+    <div class="box green">
+      <h3>What not to do</h3>
+      <p>Do not cut standard prices — they are market-normal and customers already accept 35/55/60 over-list charges without complaint. Do not add a fifth box — the four you have are half empty at peak. Do not launch a customer app — the plate already does the job.</p>
+    </div>
+  </div>
+  <div class="foot"><span>ESG Car Wash · Improvement Plan</span><span>6 · Levers 4–6</span></div>
+</div>
+
+<!-- ═══════════ 7. ROLLOUT ═══════════ -->
+<div class="page">
+  <div class="inner">
+    <div class="kicker">6 · Rollout</div>
+    <h2>90 days, in order</h2>
+
+    <table>
+      <thead><tr><th style="width:22mm">When</th><th>Do</th><th class="n" style="width:34mm">Gain / month</th></tr></thead>
+      <tbody>
+        <tr><td><b>Week 1</b></td><td>Print the new menu <span class="pill g">done</span> · add მინივენი, სტანდარტი+, add-ons and XL VIP to the ERP · “offer one add-on to every car” rule · comp category and close-of-shift guard rails in the app</td><td class="n">+1,500–2,000 ₾<br><span class="muted">+ leak fixes ≈ 800 ₾</span></td></tr>
+        <tr><td><b>Weeks 2–4</b></td><td>Plate loyalty live in the ERP · morning free wax · VIP share per manager on the live screen · detailing bookable in the QR app · start the photo library</td><td class="n">+2,500 ₾</td></tr>
+        <tr><td><b>Month 2</b></td><td>Mall-staff monthly pass · approach 5 fleets (target 3 signed) · mall partnership · SMS reminders from collected phones</td><td class="n">+4,000–6,000 ₾</td></tr>
+        <tr><td><b>Month 3</b></td><td>Review attach rate and VIP share per manager · pre-winter “underbody + wax” package for October–November (last October was the weakest month) · bonus redesign on paid revenue</td><td class="n">+1,500 ₾</td></tr>
+        <tr class="total"><td></td><td>Realistic run-rate by the end of month 3, on today's ≈ 45,000 ₾ base</td><td class="n">+12,000–15,000 ₾ (+25–33%)</td></tr>
+      </tbody>
+    </table>
+
+    <div class="cols">
+      <div>
+        <h3>Measure every month (already in the master sheet, or one line from it)</h3>
+        <ul>
+          <li>Revenue per day and cars per day, vs the same month last year</li>
+          <li>Average ticket — the add-on and VIP levers show up here first</li>
+          <li>Add-on attach rate and VIP share, per manager</li>
+          <li>Repeat share: % of washes from plates seen before</li>
+          <li>Washes before 12:30 and on Tue/Wed</li>
+          <li>Comp ₾, unpaid ₾, cash difference at close</li>
+          <li>Labour % of revenue (target: back under 44%)</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Decisions needed from you</h3>
+        <ul class="check">
+          <li>Confirm add-on prices and the სტანდარტი+ price points (menu is printed with 45/55/65/75)</li>
+          <li>Washers get 35% on add-ons — yes / no</li>
+          <li>Loyalty rule: every 6th free, or 20% off the 6th</li>
+          <li>Hours: keep 10:00–21:00 and staff the evening, or print 10:00–20:00</li>
+          <li>Comp policy: who washes free, and are washers paid on those cars</li>
+          <li>Which 5 fleets to approach first</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>App changes to build (one release)</h3>
+    <p class="small">მინივენი as a car type · სტანდარტი+ as a wash type · add-on chips on each wash row that add to the price and show in the archives · XL VIP in the price hints · plate loyalty counter (“5/6” when the plate is typed; 6th free) · monthly pass as a payment type · comp category excluded from revenue and bonus · price sanity warning · mandatory box · close blocked with unpaid tabs unless name + phone recorded · terminal / cash reconciliation at close · VIP share and add-on rate per manager on the live screen · Telegram alert if nothing is logged by 11:15.</p>
+  </div>
+  <div class="foot"><span>ESG Car Wash · Improvement Plan</span><span>7 · Rollout</span></div>
+</div>
+
+</body>
+</html>
